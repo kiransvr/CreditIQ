@@ -9,6 +9,8 @@ export const validationRequestSchema = z.object({
   rows: z.array(borrowerRowSchema).min(1).max(5000)
 });
 
+export type BorrowerRow = z.infer<typeof borrowerRowSchema>;
+
 export interface ValidationIssue {
   row: number;
   field: string;
@@ -65,7 +67,7 @@ function toNumber(value: string | number | null | undefined): number | null {
 }
 
 export function validateBorrowerRows(
-  rows: z.infer<typeof borrowerRowSchema>[]
+  rows: BorrowerRow[]
 ): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];

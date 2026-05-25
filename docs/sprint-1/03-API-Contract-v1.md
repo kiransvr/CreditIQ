@@ -72,7 +72,15 @@ Response 200:
   "status": "validated",
   "fileName": "borrowers-may.xlsx",
   "createdBy": "user_123",
-  "createdAt": "2026-05-25T10:30:00Z"
+  "receivedAt": "2026-05-25T10:30:00Z",
+  "summary": {
+    "totalRows": 120,
+    "validRows": 105,
+    "errorRows": 15,
+    "warningRows": 22
+  },
+  "errors": [],
+  "warnings": []
 }
 
 ### GET /api/v1/uploads/{uploadId}/report
@@ -108,7 +116,12 @@ POST /api/v1/uploads/{uploadId}/validate body:
   ]
 }
 
-## 5. Error Envelope Standard
+## 5. Persistence mode
+
+- When DATABASE_URL is configured, upload and validation data are persisted in PostgreSQL.
+- When DATABASE_URL is not configured, API uses an in-memory repository for local development.
+
+## 6. Error Envelope Standard
 
 {
   "code": "STRING_CODE",
