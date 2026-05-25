@@ -27,6 +27,19 @@ interface UploadFileSource {
   fileContent: Buffer;
 }
 
+interface UploadOverride {
+  decision: string;
+  reason: string;
+  overriddenBy: string;
+  overriddenAt: string;
+}
+
+interface OverrideInput {
+  decision: string;
+  reason: string;
+  actor: UploadActor;
+}
+
 interface UploadRecord {
   uploadId: string;
   status: UploadStatus;
@@ -52,6 +65,7 @@ interface UploadDetails extends UploadValidationRecord {
   templateVersion: string;
   createdBy: string;
   receivedAt: string;
+  override: UploadOverride | null;
 }
 
 interface UploadRepository {
@@ -59,6 +73,7 @@ interface UploadRepository {
   validateUpload(uploadId: string, rows: BorrowerRow[], result: ValidationResult): Promise<UploadValidationRecord | null>;
   getUpload(uploadId: string): Promise<UploadDetails | null>;
   getUploadFileSource(uploadId: string): Promise<UploadFileSource | null>;
+  overrideUpload(uploadId: string, input: OverrideInput): Promise<UploadDetails | null>;
 }
 
 interface UploadMemoryEntity {
@@ -75,6 +90,7 @@ interface UploadMemoryEntity {
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
   summary: ValidationSummary;
+  override: UploadOverride | null;
 }
 
 function getFirstRowOrThrow<T>(rows: T[], errorMessage: string): T {
@@ -111,7 +127,8 @@ class InMemoryUploadRepository implements UploadRepository {
         validRows: 0,
         errorRows: 0,
         warningRows: 0
-      }
+      },
+      override: null
     };
 
     this.uploads.set(uploadId, entity);
@@ -165,7 +182,8 @@ class InMemoryUploadRepository implements UploadRepository {
       institutionId: existing.institutionId,
       templateVersion: existing.templateVersion,
       createdBy: existing.createdBy,
-      receivedAt: existing.receivedAt
+      receivedAt: existing.receivedAt,
+      override: existing.override
     };
   }
 
@@ -179,6 +197,35 @@ class InMemoryUploadRepository implements UploadRepository {
       fileName: existing.fileName,
       fileType: existing.fileType,
       fileContent: existing.fileContent
+    };
+  }
+
+  async overrideUpload(uploadId: string, input: OverrideInput): Promise<UploadDetails | null> {
+    const existing = this.uploads.get(uploadId);
+    if (!existing) {
+      return null;
+    }
+
+    existing.override = {
+      decision: input.decision,
+      reason: input.reason,
+      overriddenBy: input.actor.username,
+      overriddenAt: new Date().toISOString()
+    };
+
+    return {
+      uploadId,
+      status: existing.status,
+      summary: existing.summary,
+      errors: existing.errors,
+      warnings: existing.warnings,
+      fileName: existing.fileName,
+      fileType: existing.fileType,
+      institutionId: existing.institutionId,
+      templateVersion: existing.templateVersion,
+      createdBy: existing.createdBy,
+      receivedAt: existing.receivedAt,
+      override: existing.override
     };
   }
 }
@@ -384,6 +431,10 @@ class PostgresUploadRepository implements UploadRepository {
       uploaded_at: string;
       institution_code: string;
       username: string;
+      override_decision: string | null;
+      override_reason: string | null;
+      overridden_at: string | null;
+      overridden_by_username: string | null;
     }>(
       `SELECT u.id,
               u.status,
@@ -392,10 +443,15 @@ class PostgresUploadRepository implements UploadRepository {
               u.template_version,
               u.uploaded_at,
               i.institution_code,
-              us.username
+              us.username,
+              u.override_decision,
+              u.override_reason,
+              u.overridden_at,
+              ous.username AS overridden_by_username
        FROM uploads u
        INNER JOIN institutions i ON i.id = u.institution_id
        INNER JOIN users us ON us.id = u.uploaded_by
+       LEFT JOIN users ous ON ous.id = u.overridden_by
        WHERE u.id = $1`,
       [uploadId]
     );
@@ -482,7 +538,15 @@ class PostgresUploadRepository implements UploadRepository {
       institutionId: upload.institution_code,
       templateVersion: upload.template_version,
       createdBy: upload.username,
-      receivedAt: new Date(upload.uploaded_at).toISOString()
+      receivedAt: new Date(upload.uploaded_at).toISOString(),
+      override: upload.override_decision && upload.override_reason && upload.overridden_at && upload.overridden_by_username
+        ? {
+            decision: upload.override_decision,
+            reason: upload.override_reason,
+            overriddenBy: upload.overridden_by_username,
+            overriddenAt: new Date(upload.overridden_at).toISOString()
+          }
+        : null
     };
   }
 
@@ -512,6 +576,56 @@ class PostgresUploadRepository implements UploadRepository {
       fileType: row.file_type,
       fileContent: row.file_content
     };
+  }
+
+  async overrideUpload(uploadId: string, input: OverrideInput): Promise<UploadDetails | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const uploadResult = await client.query<{ id: string; institution_id: string }>(
+        `SELECT id, institution_id FROM uploads WHERE id = $1`,
+        [uploadId]
+      );
+
+      if (uploadResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      const uploadRow = getFirstRowOrThrow(uploadResult.rows, "Upload record missing during override");
+      const actorUserId = await ensureUser(client, uploadRow.institution_id, input.actor.username, input.actor.role);
+
+      await client.query(
+        `UPDATE uploads
+         SET override_decision = $2,
+             override_reason = $3,
+             overridden_by = $4,
+             overridden_at = NOW()
+         WHERE id = $1`,
+        [uploadId, input.decision, input.reason, actorUserId]
+      );
+
+      await client.query(
+        `INSERT INTO audit_events (id, actor_user_id, action_type, object_type, object_id, metadata_json)
+         VALUES ($1, $2, 'upload_overridden', 'upload', $3, $4::jsonb)`,
+        [
+          crypto.randomUUID(),
+          actorUserId,
+          uploadId,
+          JSON.stringify({ decision: input.decision, reason: input.reason })
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return this.getUpload(uploadId);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

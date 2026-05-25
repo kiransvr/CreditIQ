@@ -25,6 +25,11 @@ const uploadMetaSchema = z.object({
   templateVersion: z.string().min(1)
 });
 
+const overrideSchema = z.object({
+  decision: z.enum(["proceed", "lower_loan", "manual_review", "reject"]),
+  reason: z.string().min(10)
+});
+
 export const uploadsRouter = Router();
 const uploadRepository = getUploadRepository();
 
@@ -184,6 +189,59 @@ uploadsRouter.get(
       }
 
       return res.status(200).json(record);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+uploadsRouter.post(
+  "/uploads/:uploadId/override",
+  requireAuth,
+  requireRole(["credit_manager", "admin"]),
+  async (req, res, next) => {
+    const uploadId = getUploadIdFromParams(req.params.uploadId, res);
+    if (!uploadId) {
+      return;
+    }
+
+    const parsed = overrideSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({
+        code: "INVALID_OVERRIDE_PAYLOAD",
+        message: "decision and reason (min 10 chars) are required",
+        details: parsed.error.issues
+      });
+    }
+
+    const actor = req.user;
+    if (!actor) {
+      return res.status(401).json({
+        code: "UNAUTHORIZED",
+        message: "User context is missing",
+        details: []
+      });
+    }
+
+    try {
+      const updated = await uploadRepository.overrideUpload(uploadId, {
+        decision: parsed.data.decision,
+        reason: parsed.data.reason,
+        actor: {
+          username: actor.id,
+          role: actor.role
+        }
+      });
+
+      if (!updated) {
+        return res.status(404).json({
+          code: "UPLOAD_NOT_FOUND",
+          message: "Upload was not found",
+          details: []
+        });
+      }
+
+      return res.status(200).json(updated);
     } catch (error) {
       return next(error);
     }

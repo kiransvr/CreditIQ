@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 type ScreenState = "idle" | "working" | "success" | "error";
-type UserRole = "loan_officer" | "credit_manager" | "risk_analyst" | "auditor";
+type UserRole = "loan_officer" | "credit_manager" | "risk_analyst" | "auditor" | "admin";
 
 interface UploadSummary {
   totalRows: number;
@@ -16,6 +16,12 @@ interface UploadDetails {
   summary: UploadSummary;
   errors: Array<{ row: number; field: string; code: string; message: string }>;
   warnings: Array<{ row: number; field: string; code: string; message: string }>;
+  override: {
+    decision: string;
+    reason: string;
+    overriddenBy: string;
+    overriddenAt: string;
+  } | null;
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
@@ -24,6 +30,8 @@ export function App() {
   const [file, setFile] = useState<File | null>(null);
   const [role, setRole] = useState<UserRole>("loan_officer");
   const [uploadId, setUploadId] = useState("");
+  const [overrideDecision, setOverrideDecision] = useState("manual_review");
+  const [overrideReason, setOverrideReason] = useState("");
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("Ready. Upload a file or fetch an existing upload.");
   const [details, setDetails] = useState<UploadDetails | null>(null);
@@ -185,6 +193,49 @@ export function App() {
     }
   }
 
+  async function submitOverride() {
+    if (!uploadId.trim()) {
+      setState("error");
+      setMessage("Enter an uploadId before override.");
+      return;
+    }
+
+    if (overrideReason.trim().length < 10) {
+      setState("error");
+      setMessage("Override reason must be at least 10 characters.");
+      return;
+    }
+
+    setState("working");
+    setMessage("Submitting override...");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/uploads/${uploadId}/override`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          decision: overrideDecision,
+          reason: overrideReason
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await parseError(response));
+      }
+
+      const body = (await response.json()) as UploadDetails;
+      setDetails(body);
+      setState("success");
+      setMessage(`Override saved for ${body.uploadId}`);
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Override failed.");
+    }
+  }
+
   return (
     <main className="page">
       <section className="card">
@@ -198,6 +249,7 @@ export function App() {
             <option value="credit_manager">credit_manager</option>
             <option value="risk_analyst">risk_analyst</option>
             <option value="auditor">auditor</option>
+            <option value="admin">admin</option>
           </select>
         </div>
 
@@ -241,6 +293,33 @@ export function App() {
           </div>
         </div>
 
+        {role === "credit_manager" || role === "admin" ? (
+          <section className="override-panel">
+            <h2>Manual Override</h2>
+            <label htmlFor="override-decision">Decision</label>
+            <select
+              id="override-decision"
+              value={overrideDecision}
+              onChange={(event) => setOverrideDecision(event.target.value)}
+            >
+              <option value="proceed">proceed</option>
+              <option value="lower_loan">lower_loan</option>
+              <option value="manual_review">manual_review</option>
+              <option value="reject">reject</option>
+            </select>
+            <label htmlFor="override-reason">Reason</label>
+            <textarea
+              id="override-reason"
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder="Mandatory override justification"
+            />
+            <button type="button" onClick={submitOverride} disabled={state === "working"}>
+              Submit Override
+            </button>
+          </section>
+        ) : null}
+
         {details ? (
           <section className="summary">
             <h2>Validation Summary</h2>
@@ -250,6 +329,16 @@ export function App() {
             <p>Valid rows: {details.summary.validRows}</p>
             <p>Error rows: {details.summary.errorRows}</p>
             <p>Warning rows: {details.summary.warningRows}</p>
+            {details.override ? (
+              <>
+                <p>Override decision: {details.override.decision}</p>
+                <p>Override reason: {details.override.reason}</p>
+                <p>Overridden by: {details.override.overriddenBy}</p>
+                <p>Overridden at: {new Date(details.override.overriddenAt).toLocaleString()}</p>
+              </>
+            ) : (
+              <p>No override recorded.</p>
+            )}
           </section>
         ) : null}
 

@@ -55,6 +55,15 @@ select {
   width: 100%;
 }
 
+textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+}
+
 button {
   border: none;
   border-radius: 10px;
@@ -116,6 +125,21 @@ button:disabled {
   border-radius: 12px;
   padding: 12px;
   background: #f8fafc;
+}
+
+.override-panel {
+  margin-top: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffbeb;
+  display: grid;
+  gap: 8px;
+}
+
+.override-panel h2 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .summary h2 {

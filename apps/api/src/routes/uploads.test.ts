@@ -58,6 +58,36 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(getResponse.body.uploadId, uploadId);
   assert.equal(getResponse.body.summary.totalRows, 2);
 
+  const invalidOverrideResponse = await request(app)
+    .post(`/api/v1/uploads/${uploadId}/override`)
+    .set(authHeaders("credit_manager"))
+    .send({
+      decision: "manual_review",
+      reason: "too short"
+    });
+
+  assert.equal(invalidOverrideResponse.status, 400);
+  assert.equal(invalidOverrideResponse.body.code, "INVALID_OVERRIDE_PAYLOAD");
+
+  const overrideResponse = await request(app)
+    .post(`/api/v1/uploads/${uploadId}/override`)
+    .set(authHeaders("credit_manager"))
+    .send({
+      decision: "manual_review",
+      reason: "Data quality concerns require credit manager review."
+    });
+
+  assert.equal(overrideResponse.status, 200);
+  assert.equal(overrideResponse.body.override.decision, "manual_review");
+  assert.equal(typeof overrideResponse.body.override.overriddenAt, "string");
+
+  const getAfterOverrideResponse = await request(app)
+    .get(`/api/v1/uploads/${uploadId}`)
+    .set(authHeaders("auditor"));
+
+  assert.equal(getAfterOverrideResponse.status, 200);
+  assert.equal(getAfterOverrideResponse.body.override.decision, "manual_review");
+
   const reportResponse = await request(app)
     .get(`/api/v1/uploads/${uploadId}/report`)
     .set(authHeaders("auditor"));

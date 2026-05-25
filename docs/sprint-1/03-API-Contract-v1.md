@@ -84,8 +84,30 @@ Response 200:
     "warningRows": 22
   },
   "errors": [],
-  "warnings": []
+  "warnings": [],
+  "override": {
+    "decision": "manual_review",
+    "reason": "Data quality concerns require manager review.",
+    "overriddenBy": "manager.user",
+    "overriddenAt": "2026-05-25T12:00:00Z"
+  }
 }
+
+### POST /api/v1/uploads/{uploadId}/override
+Purpose: Apply manual override with mandatory reason.
+
+Allowed roles:
+- credit_manager
+- admin
+
+Request body:
+{
+  "decision": "proceed|lower_loan|manual_review|reject",
+  "reason": "Minimum 10 characters"
+}
+
+Response 200:
+- Returns updated upload details including override block.
 
 ### GET /api/v1/uploads/{uploadId}/report
 Purpose: Download validation report.

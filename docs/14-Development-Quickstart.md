@@ -42,7 +42,8 @@ Web URL: http://localhost:5173
 4. Confirm upload accepted message.
 5. Run Validate Upload in UI.
 6. Fetch details and download report from UI.
-7. Confirm API health endpoint returns ok at /api/v1/health.
+7. As credit_manager or admin role, submit manual override with reason and verify auditable override details appear in summary.
+8. Confirm API health endpoint returns ok at /api/v1/health.
 
 ## 7. Auth headers for API testing
 
