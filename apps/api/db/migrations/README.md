@@ -5,6 +5,7 @@ This folder contains SQL migrations for CreditIQ Lite.
 ## Current baseline
 
 - 001_initial_schema.sql
+- 002_add_upload_file_content.sql
 
 ## Apply manually (PostgreSQL)
 
@@ -12,6 +13,7 @@ This folder contains SQL migrations for CreditIQ Lite.
 2. Run:
 
 psql "$DATABASE_URL" -f apps/api/db/migrations/001_initial_schema.sql
+psql "$DATABASE_URL" -f apps/api/db/migrations/002_add_upload_file_content.sql
 
 ## Notes
 

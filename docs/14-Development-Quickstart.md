@@ -54,7 +54,13 @@ Include these headers when testing protected endpoints:
 
 ## 8. Validation endpoint payload
 
-POST /api/v1/uploads/{uploadId}/validate expects:
+POST /api/v1/uploads/{uploadId}/validate can run in two modes.
+
+Mode A (recommended): parse from uploaded file by uploadId:
+
+{}
+
+Mode B: provide rows directly:
 
 {
 	"rows": [

@@ -6,7 +6,7 @@ export const borrowerRowSchema = z.record(
 );
 
 export const validationRequestSchema = z.object({
-  rows: z.array(borrowerRowSchema).min(1).max(5000)
+  rows: z.array(borrowerRowSchema).min(1).max(5000).optional()
 });
 
 export type BorrowerRow = z.infer<typeof borrowerRowSchema>;

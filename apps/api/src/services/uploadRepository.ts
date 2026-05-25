@@ -17,7 +17,14 @@ interface CreateUploadInput {
   templateVersion: string;
   fileName: string;
   fileType: string;
+  fileContent: Buffer;
   actor: UploadActor;
+}
+
+interface UploadFileSource {
+  fileName: string;
+  fileType: string;
+  fileContent: Buffer;
 }
 
 interface UploadRecord {
@@ -51,12 +58,14 @@ interface UploadRepository {
   createUpload(input: CreateUploadInput): Promise<UploadRecord>;
   validateUpload(uploadId: string, rows: BorrowerRow[], result: ValidationResult): Promise<UploadValidationRecord | null>;
   getUpload(uploadId: string): Promise<UploadDetails | null>;
+  getUploadFileSource(uploadId: string): Promise<UploadFileSource | null>;
 }
 
 interface UploadMemoryEntity {
   uploadId: string;
   fileName: string;
   fileType: string;
+  fileContent: Buffer;
   institutionId: string;
   templateVersion: string;
   createdBy: string;
@@ -88,6 +97,7 @@ class InMemoryUploadRepository implements UploadRepository {
       uploadId,
       fileName: input.fileName,
       fileType: input.fileType,
+      fileContent: input.fileContent,
       institutionId: input.institutionCode,
       templateVersion: input.templateVersion,
       createdBy: input.actor.username,
@@ -158,6 +168,19 @@ class InMemoryUploadRepository implements UploadRepository {
       receivedAt: existing.receivedAt
     };
   }
+
+  async getUploadFileSource(uploadId: string): Promise<UploadFileSource | null> {
+    const existing = this.uploads.get(uploadId);
+    if (!existing) {
+      return null;
+    }
+
+    return {
+      fileName: existing.fileName,
+      fileType: existing.fileType,
+      fileContent: existing.fileContent
+    };
+  }
 }
 
 async function ensureInstitution(client: PoolClient, institutionCode: string): Promise<string> {
@@ -224,10 +247,10 @@ class PostgresUploadRepository implements UploadRepository {
         status: UploadStatus;
         uploaded_at: string;
       }>(
-        `INSERT INTO uploads (id, institution_id, file_name, file_type, template_version, status, uploaded_by)
-         VALUES ($1, $2, $3, $4, $5, 'received', $6)
+        `INSERT INTO uploads (id, institution_id, file_name, file_type, file_content, template_version, status, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6, 'received', $7)
          RETURNING id, status, uploaded_at`,
-        [uploadId, institutionId, input.fileName, input.fileType, input.templateVersion, createdBy]
+        [uploadId, institutionId, input.fileName, input.fileType, input.fileContent, input.templateVersion, createdBy]
       );
 
       await client.query(
@@ -460,6 +483,34 @@ class PostgresUploadRepository implements UploadRepository {
       templateVersion: upload.template_version,
       createdBy: upload.username,
       receivedAt: new Date(upload.uploaded_at).toISOString()
+    };
+  }
+
+  async getUploadFileSource(uploadId: string): Promise<UploadFileSource | null> {
+    const result = await this.pool.query<{
+      file_name: string;
+      file_type: string;
+      file_content: Buffer | null;
+    }>(
+      `SELECT file_name, file_type, file_content
+       FROM uploads
+       WHERE id = $1`,
+      [uploadId]
+    );
+
+    if (result.rowCount === 0) {
+      return null;
+    }
+
+    const row = getFirstRowOrThrow(result.rows, "Upload file source missing after query");
+    if (!row.file_content) {
+      throw new Error("Upload file content is missing in storage");
+    }
+
+    return {
+      fileName: row.file_name,
+      fileType: row.file_type,
+      fileContent: row.file_content
     };
   }
 }

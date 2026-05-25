@@ -3,6 +3,7 @@ import multer from "multer";
 import { z } from "zod";
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { parseBorrowerRowsFromUpload } from "../services/fileParser.js";
 import { getUploadRepository } from "../services/uploadRepository.js";
 import { validateBorrowerRows, validationRequestSchema } from "../services/validation.js";
 
@@ -74,6 +75,7 @@ uploadsRouter.post(
         templateVersion: parsedMeta.data.templateVersion,
         fileName: file.originalname,
         fileType: file.mimetype,
+        fileContent: file.buffer,
         actor: {
           username: actor.id,
           role: actor.role
@@ -100,20 +102,41 @@ uploadsRouter.post(
         details: []
       });
     }
-    const parsedBody = validationRequestSchema.safeParse(req.body);
+    const parsedBody = validationRequestSchema.safeParse(req.body ?? {});
 
     if (!parsedBody.success) {
       return res.status(400).json({
         code: "INVALID_VALIDATION_PAYLOAD",
-        message: "rows array is required for validation",
+        message: "Payload is invalid",
         details: parsedBody.error.issues
       });
     }
 
-    const result = validateBorrowerRows(parsedBody.data.rows);
-
     try {
-      const persisted = await uploadRepository.validateUpload(uploadId, parsedBody.data.rows, result);
+      let rows = parsedBody.data.rows;
+      if (!rows) {
+        const fileSource = await uploadRepository.getUploadFileSource(uploadId);
+        if (!fileSource) {
+          return res.status(404).json({
+            code: "UPLOAD_NOT_FOUND",
+            message: "Upload was not found",
+            details: []
+          });
+        }
+
+        try {
+          rows = parseBorrowerRowsFromUpload(fileSource.fileName, fileSource.fileContent);
+        } catch (error) {
+          return res.status(400).json({
+            code: "UPLOAD_PARSE_FAILED",
+            message: error instanceof Error ? error.message : "Unable to parse uploaded file",
+            details: []
+          });
+        }
+      }
+
+      const result = validateBorrowerRows(rows);
+      const persisted = await uploadRepository.validateUpload(uploadId, rows, result);
       if (!persisted) {
         return res.status(404).json({
           code: "UPLOAD_NOT_FOUND",

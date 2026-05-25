@@ -35,6 +35,10 @@ Error 400:
 ### POST /api/v1/uploads/{uploadId}/validate
 Purpose: Run validation rules and generate result report.
 
+Behavior:
+- If request body contains rows, those rows are validated.
+- If rows are omitted, API parses the originally uploaded CSV/XLSX file and validates parsed rows.
+
 Response 200:
 {
   "uploadId": "upl_001",
@@ -116,10 +120,15 @@ POST /api/v1/uploads/{uploadId}/validate body:
   ]
 }
 
+POST /api/v1/uploads/{uploadId}/validate body can also be empty:
+
+{}
+
 ## 5. Persistence mode
 
 - When DATABASE_URL is configured, upload and validation data are persisted in PostgreSQL.
 - When DATABASE_URL is not configured, API uses an in-memory repository for local development.
+- Uploaded file bytes are persisted and used for parse-on-validate flow.
 
 ## 6. Error Envelope Standard
 
