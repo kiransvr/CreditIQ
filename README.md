@@ -18,6 +18,12 @@ This repository currently contains the business and delivery documentation requi
 - [Risk Register](docs/10-Risk-Register.md)
 - [Go To Market and Client Onboarding](docs/11-Go-To-Market-and-Client-Onboarding.md)
 - [Traceability Matrix](docs/12-Traceability-Matrix.md)
+- [Sprint 1 Execution Pack](docs/13-Sprint-1-Execution-Pack.md)
+- [Sprint 1 User Stories](docs/sprint-1/01-User-Stories.md)
+- [Sprint 1 Engineering Tasks](docs/sprint-1/02-Engineering-Tasks.md)
+- [Sprint 1 API Contract v1](docs/sprint-1/03-API-Contract-v1.md)
+- [Sprint 1 Database Schema Draft](docs/sprint-1/04-Database-Schema-Draft.md)
+- [Sprint 1 Definition of Done](docs/sprint-1/05-Definition-of-Done-and-Acceptance.md)
 
 ## Current Product Scope (Phase 1)
 
