@@ -37,10 +37,12 @@ Web URL: http://localhost:5173
 ## 6. Basic smoke checks
 
 1. Open web app.
-2. Upload a CSV or XLSX file.
-3. Confirm upload accepted message.
-4. Confirm API health endpoint returns ok at /api/v1/health.
-5. Validate upload via /api/v1/uploads/{uploadId}/validate and download /api/v1/uploads/{uploadId}/report.
+2. Select role in the UI (loan_officer, credit_manager, risk_analyst, or auditor).
+3. Upload a CSV or XLSX file (auditor view hides upload).
+4. Confirm upload accepted message.
+5. Run Validate Upload in UI.
+6. Fetch details and download report from UI.
+7. Confirm API health endpoint returns ok at /api/v1/health.
 
 ## 7. Auth headers for API testing
 

@@ -39,16 +39,20 @@ p {
 form {
   display: grid;
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 label {
   font-weight: 600;
 }
 
-input[type="file"] {
+input[type="file"],
+input[type="text"],
+select {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px;
+  width: 100%;
 }
 
 button {
@@ -86,4 +90,46 @@ button:disabled {
 .status.error {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.toolbar {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.action-buttons {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.summary {
+  margin-top: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.summary h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.summary p {
+  margin: 4px 0;
+}
+
+.note {
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  border-radius: 10px;
+  padding: 10px;
 }
