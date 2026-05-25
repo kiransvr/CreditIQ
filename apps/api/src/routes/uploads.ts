@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { parseBorrowerRowsFromUpload } from "../services/fileParser.js";
+import { generateRecommendation } from "../services/recommendation.js";
 import { buildValidationReportCsv } from "../services/report.js";
 import { getUploadRepository } from "../services/uploadRepository.js";
 import { validateBorrowerRows, validationRequestSchema } from "../services/validation.js";
@@ -152,7 +153,8 @@ uploadsRouter.post(
       }
 
       const result = validateBorrowerRows(rows);
-      const persisted = await uploadRepository.validateUpload(uploadId, rows, result);
+      const recommendation = generateRecommendation(rows, result);
+      const persisted = await uploadRepository.validateUpload(uploadId, rows, result, recommendation);
       if (!persisted) {
         return res.status(404).json({
           code: "UPLOAD_NOT_FOUND",
@@ -272,7 +274,8 @@ uploadsRouter.get(
         record.uploadId,
         record.summary,
         record.errors,
-        record.warnings
+        record.warnings,
+        record.recommendation
       );
 
       res.setHeader("Content-Type", "text/csv; charset=utf-8");

@@ -49,6 +49,8 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(validateResponse.body.summary.totalRows, 2);
   assert.equal(validateResponse.body.summary.errorRows, 1);
   assert.equal(validateResponse.body.summary.warningRows, 1);
+  assert.equal(validateResponse.body.recommendation.decision, "manual_review");
+  assert.equal(typeof validateResponse.body.recommendation.suggestedAmount, "number");
 
   const getResponse = await request(app)
     .get(`/api/v1/uploads/${uploadId}`)
@@ -57,6 +59,7 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(getResponse.status, 200);
   assert.equal(getResponse.body.uploadId, uploadId);
   assert.equal(getResponse.body.summary.totalRows, 2);
+  assert.equal(getResponse.body.recommendation.decision, "manual_review");
 
   const invalidOverrideResponse = await request(app)
     .post(`/api/v1/uploads/${uploadId}/override`)
@@ -96,6 +99,7 @@ test("upload, validate from file, fetch upload, and download report", async () =
   const contentType = reportResponse.headers["content-type"] ?? "";
   assert.match(contentType, /text\/csv/);
   assert.match(reportResponse.text, /summary,totalRows,2/);
+  assert.match(reportResponse.text, /summary,recommendedDecision/);
   assert.match(reportResponse.text, /issueType,row,field,code,message/);
 });
 

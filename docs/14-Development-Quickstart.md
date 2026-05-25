@@ -44,6 +44,7 @@ Web URL: http://localhost:5173
 6. Fetch details and download report from UI.
 7. As credit_manager or admin role, submit manual override with reason and verify auditable override details appear in summary.
 8. Confirm API health endpoint returns ok at /api/v1/health.
+9. Confirm recommendation decision and suggested amount appear in summary and report CSV.
 
 ## 7. Auth headers for API testing
 

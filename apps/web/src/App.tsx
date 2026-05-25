@@ -16,6 +16,11 @@ interface UploadDetails {
   summary: UploadSummary;
   errors: Array<{ row: number; field: string; code: string; message: string }>;
   warnings: Array<{ row: number; field: string; code: string; message: string }>;
+  recommendation: {
+    decision: string;
+    suggestedAmount: number;
+    reasons: string[];
+  };
   override: {
     decision: string;
     reason: string;
@@ -329,6 +334,11 @@ export function App() {
             <p>Valid rows: {details.summary.validRows}</p>
             <p>Error rows: {details.summary.errorRows}</p>
             <p>Warning rows: {details.summary.warningRows}</p>
+            <p>System recommendation: {details.recommendation.decision}</p>
+            <p>Suggested amount: {details.recommendation.suggestedAmount}</p>
+            {details.recommendation.reasons.length > 0 ? (
+              <p>Top reason: {details.recommendation.reasons[0]}</p>
+            ) : null}
             {details.override ? (
               <>
                 <p>Override decision: {details.override.decision}</p>

@@ -64,7 +64,14 @@ Response 200:
       "code": "VALUE_OUTLIER",
       "message": "averageBalance significantly differs from peer values"
     }
-  ]
+  ],
+  "recommendation": {
+    "decision": "manual_review",
+    "suggestedAmount": 1200,
+    "reasons": [
+      "Mandatory fields are missing or invalid, so manager review is required."
+    ]
+  }
 }
 
 ### GET /api/v1/uploads/{uploadId}
@@ -85,6 +92,13 @@ Response 200:
   },
   "errors": [],
   "warnings": [],
+  "recommendation": {
+    "decision": "manual_review",
+    "suggestedAmount": 1200,
+    "reasons": [
+      "Mandatory fields are missing or invalid, so manager review is required."
+    ]
+  },
   "override": {
     "decision": "manual_review",
     "reason": "Data quality concerns require manager review.",

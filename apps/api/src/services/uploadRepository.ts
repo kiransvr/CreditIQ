@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { getDbPool, hasDatabaseConfig } from "../db/client.js";
+import type { RecommendationResult } from "./recommendation.js";
 import type { BorrowerRow, ValidationIssue, ValidationResult, ValidationSummary } from "./validation.js";
 
 type UploadStatus = "received" | "validating" | "validated" | "failed";
@@ -34,6 +35,12 @@ interface UploadOverride {
   overriddenAt: string;
 }
 
+interface UploadRecommendation {
+  decision: string;
+  suggestedAmount: number;
+  reasons: string[];
+}
+
 interface OverrideInput {
   decision: string;
   reason: string;
@@ -56,6 +63,7 @@ interface UploadValidationRecord {
   summary: ValidationSummary;
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
+  recommendation: UploadRecommendation;
 }
 
 interface UploadDetails extends UploadValidationRecord {
@@ -70,7 +78,12 @@ interface UploadDetails extends UploadValidationRecord {
 
 interface UploadRepository {
   createUpload(input: CreateUploadInput): Promise<UploadRecord>;
-  validateUpload(uploadId: string, rows: BorrowerRow[], result: ValidationResult): Promise<UploadValidationRecord | null>;
+  validateUpload(
+    uploadId: string,
+    rows: BorrowerRow[],
+    result: ValidationResult,
+    recommendation: RecommendationResult
+  ): Promise<UploadValidationRecord | null>;
   getUpload(uploadId: string): Promise<UploadDetails | null>;
   getUploadFileSource(uploadId: string): Promise<UploadFileSource | null>;
   overrideUpload(uploadId: string, input: OverrideInput): Promise<UploadDetails | null>;
@@ -91,6 +104,7 @@ interface UploadMemoryEntity {
   warnings: ValidationIssue[];
   summary: ValidationSummary;
   override: UploadOverride | null;
+  recommendation: UploadRecommendation;
 }
 
 function getFirstRowOrThrow<T>(rows: T[], errorMessage: string): T {
@@ -128,7 +142,12 @@ class InMemoryUploadRepository implements UploadRepository {
         errorRows: 0,
         warningRows: 0
       },
-      override: null
+      override: null,
+      recommendation: {
+        decision: "manual_review",
+        suggestedAmount: 0,
+        reasons: []
+      }
     };
 
     this.uploads.set(uploadId, entity);
@@ -144,7 +163,12 @@ class InMemoryUploadRepository implements UploadRepository {
     };
   }
 
-  async validateUpload(uploadId: string, rows: BorrowerRow[], result: ValidationResult): Promise<UploadValidationRecord | null> {
+  async validateUpload(
+    uploadId: string,
+    rows: BorrowerRow[],
+    result: ValidationResult,
+    recommendation: RecommendationResult
+  ): Promise<UploadValidationRecord | null> {
     const existing = this.uploads.get(uploadId);
     if (!existing) {
       return null;
@@ -155,13 +179,19 @@ class InMemoryUploadRepository implements UploadRepository {
     existing.errors = result.errors;
     existing.warnings = result.warnings;
     existing.summary = result.summary;
+    existing.recommendation = {
+      decision: recommendation.decision,
+      suggestedAmount: recommendation.suggestedAmount,
+      reasons: recommendation.reasons
+    };
 
     return {
       uploadId,
       status: existing.status,
       summary: existing.summary,
       errors: existing.errors,
-      warnings: existing.warnings
+      warnings: existing.warnings,
+      recommendation: existing.recommendation
     };
   }
 
@@ -183,7 +213,8 @@ class InMemoryUploadRepository implements UploadRepository {
       templateVersion: existing.templateVersion,
       createdBy: existing.createdBy,
       receivedAt: existing.receivedAt,
-      override: existing.override
+      override: existing.override,
+      recommendation: existing.recommendation
     };
   }
 
@@ -219,6 +250,7 @@ class InMemoryUploadRepository implements UploadRepository {
       summary: existing.summary,
       errors: existing.errors,
       warnings: existing.warnings,
+      recommendation: existing.recommendation,
       fileName: existing.fileName,
       fileType: existing.fileType,
       institutionId: existing.institutionId,
@@ -335,7 +367,8 @@ class PostgresUploadRepository implements UploadRepository {
   async validateUpload(
     uploadId: string,
     rows: BorrowerRow[],
-    result: ValidationResult
+    result: ValidationResult,
+    recommendation: RecommendationResult
   ): Promise<UploadValidationRecord | null> {
     const client = await this.pool.connect();
     try {
@@ -387,7 +420,15 @@ class PostgresUploadRepository implements UploadRepository {
         );
       }
 
-      await client.query(`UPDATE uploads SET status = 'validated' WHERE id = $1`, [uploadId]);
+      await client.query(
+        `UPDATE uploads
+         SET status = 'validated',
+             recommended_decision = $2,
+             recommended_amount = $3,
+             recommendation_reasons = $4::jsonb
+         WHERE id = $1`,
+        [uploadId, recommendation.decision, recommendation.suggestedAmount, JSON.stringify(recommendation.reasons)]
+      );
 
       await client.query(
         `INSERT INTO audit_events (id, actor_user_id, action_type, object_type, object_id, metadata_json)
@@ -399,7 +440,8 @@ class PostgresUploadRepository implements UploadRepository {
           JSON.stringify({
             totalRows: result.summary.totalRows,
             errorRows: result.summary.errorRows,
-            warningRows: result.summary.warningRows
+            warningRows: result.summary.warningRows,
+            recommendation
           })
         ]
       );
@@ -411,7 +453,12 @@ class PostgresUploadRepository implements UploadRepository {
         status: "validated",
         summary: result.summary,
         errors: result.errors,
-        warnings: result.warnings
+        warnings: result.warnings,
+        recommendation: {
+          decision: recommendation.decision,
+          suggestedAmount: recommendation.suggestedAmount,
+          reasons: recommendation.reasons
+        }
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -435,6 +482,9 @@ class PostgresUploadRepository implements UploadRepository {
       override_reason: string | null;
       overridden_at: string | null;
       overridden_by_username: string | null;
+      recommended_decision: string | null;
+      recommended_amount: string | null;
+      recommendation_reasons: string[] | null;
     }>(
       `SELECT u.id,
               u.status,
@@ -447,7 +497,10 @@ class PostgresUploadRepository implements UploadRepository {
               u.override_decision,
               u.override_reason,
               u.overridden_at,
-              ous.username AS overridden_by_username
+              ous.username AS overridden_by_username,
+              u.recommended_decision,
+              u.recommended_amount::text,
+              COALESCE(u.recommendation_reasons, '[]'::jsonb) AS recommendation_reasons
        FROM uploads u
        INNER JOIN institutions i ON i.id = u.institution_id
        INNER JOIN users us ON us.id = u.uploaded_by
@@ -533,6 +586,11 @@ class PostgresUploadRepository implements UploadRepository {
       summary,
       errors,
       warnings,
+      recommendation: {
+        decision: upload.recommended_decision ?? "manual_review",
+        suggestedAmount: Number.parseFloat(upload.recommended_amount ?? "0"),
+        reasons: upload.recommendation_reasons ?? []
+      },
       fileName: upload.file_name,
       fileType: upload.file_type,
       institutionId: upload.institution_code,

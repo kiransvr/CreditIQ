@@ -1,5 +1,11 @@
 import type { ValidationIssue, ValidationSummary } from "./validation.js";
 
+interface ReportRecommendation {
+  decision: string;
+  suggestedAmount: number;
+  reasons: string[];
+}
+
 function toCsvCell(value: string | number): string {
   const stringValue = String(value);
   const escaped = stringValue.replaceAll('"', '""');
@@ -10,7 +16,8 @@ export function buildValidationReportCsv(
   uploadId: string,
   summary: ValidationSummary,
   errors: ValidationIssue[],
-  warnings: ValidationIssue[]
+  warnings: ValidationIssue[],
+  recommendation: ReportRecommendation
 ): string {
   const lines: string[] = [];
 
@@ -20,6 +27,11 @@ export function buildValidationReportCsv(
   lines.push(`summary,errorRows,${summary.errorRows}`);
   lines.push(`summary,warningRows,${summary.warningRows}`);
   lines.push(`summary,uploadId,${toCsvCell(uploadId)}`);
+  lines.push(`summary,recommendedDecision,${toCsvCell(recommendation.decision)}`);
+  lines.push(`summary,suggestedAmount,${recommendation.suggestedAmount}`);
+  if (recommendation.reasons[0]) {
+    lines.push(`summary,topRecommendationReason,${toCsvCell(recommendation.reasons[0])}`);
+  }
   lines.push("");
 
   lines.push("issueType,row,field,code,message");
