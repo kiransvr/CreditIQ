@@ -1,0 +1,24 @@
+{
+  "name": "creditiq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CreditIQ Lite monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @creditiq/api",
+    "dev:web": "npm run dev --workspace @creditiq/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

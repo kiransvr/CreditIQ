@@ -24,6 +24,7 @@ This repository currently contains the business and delivery documentation requi
 - [Sprint 1 API Contract v1](docs/sprint-1/03-API-Contract-v1.md)
 - [Sprint 1 Database Schema Draft](docs/sprint-1/04-Database-Schema-Draft.md)
 - [Sprint 1 Definition of Done](docs/sprint-1/05-Definition-of-Done-and-Acceptance.md)
+- [Development Quickstart](docs/14-Development-Quickstart.md)
 
 ## Current Product Scope (Phase 1)
 
@@ -48,3 +49,9 @@ CreditIQ Lite:
 - Document owner: Product + Engineering + Risk
 - Review cadence: Bi-weekly during build, monthly post-launch
 - Versioning: Semantic documentation versions (for example v1.0, v1.1)
+
+## Monorepo Structure
+
+- apps/api: Express TypeScript API scaffold
+- apps/web: React TypeScript web scaffold
+- packages/contracts: Shared API and DTO contracts
