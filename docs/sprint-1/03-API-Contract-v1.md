@@ -85,8 +85,30 @@ Response 200:
 
 - Bearer token required for all endpoints.
 - Role check required for upload and validate actions.
+- Development headers currently supported:
+  - Authorization: Bearer dev-token
+  - x-user-id: demo-user
+  - x-user-role: loan_officer | credit_manager | risk_analyst | admin
+  - x-institution-id: demo-bank
 
-## 4. Error Envelope Standard
+## 4. Validation payload (implemented)
+
+POST /api/v1/uploads/{uploadId}/validate body:
+
+{
+  "rows": [
+    {
+      "customerId": "CUST-001",
+      "accountOpeningDate": "2024-01-01",
+      "monthlyInflow": 10000,
+      "monthlyOutflow": 6000,
+      "requestedLoanAmount": 50000,
+      "requestedTenure": 12
+    }
+  ]
+}
+
+## 5. Error Envelope Standard
 
 {
   "code": "STRING_CODE",
