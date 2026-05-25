@@ -91,7 +91,8 @@ Response 200:
 Purpose: Download validation report.
 
 Response 200:
-- Content-Type: application/pdf or text/csv
+- Content-Type: text/csv
+- Content-Disposition: attachment; filename=upload-{uploadId}-report.csv
 
 ## 3. Security
 

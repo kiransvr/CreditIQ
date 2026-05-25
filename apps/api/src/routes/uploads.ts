@@ -1,9 +1,10 @@
-import { Router } from "express";
+import { type Response, Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { parseBorrowerRowsFromUpload } from "../services/fileParser.js";
+import { buildValidationReportCsv } from "../services/report.js";
 import { getUploadRepository } from "../services/uploadRepository.js";
 import { validateBorrowerRows, validationRequestSchema } from "../services/validation.js";
 
@@ -26,6 +27,20 @@ const uploadMetaSchema = z.object({
 
 export const uploadsRouter = Router();
 const uploadRepository = getUploadRepository();
+
+function getUploadIdFromParams(uploadId: string | undefined, res: Response) {
+  if (!uploadId) {
+    res.status(400).json({
+      code: "INVALID_UPLOAD_ID",
+      message: "uploadId is required",
+      details: []
+    });
+
+    return null;
+  }
+
+  return uploadId;
+}
 
 uploadsRouter.post(
   "/uploads",
@@ -94,13 +109,9 @@ uploadsRouter.post(
   requireAuth,
   requireRole(["loan_officer", "credit_manager", "risk_analyst", "admin"]),
   async (req, res, next) => {
-    const uploadId = req.params.uploadId;
+    const uploadId = getUploadIdFromParams(req.params.uploadId, res);
     if (!uploadId) {
-      return res.status(400).json({
-        code: "INVALID_UPLOAD_ID",
-        message: "uploadId is required",
-        details: []
-      });
+      return;
     }
     const parsedBody = validationRequestSchema.safeParse(req.body ?? {});
 
@@ -157,13 +168,9 @@ uploadsRouter.get(
   requireAuth,
   requireRole(["loan_officer", "credit_manager", "risk_analyst", "admin", "auditor"]),
   async (req, res, next) => {
-    const uploadId = req.params.uploadId;
+    const uploadId = getUploadIdFromParams(req.params.uploadId, res);
     if (!uploadId) {
-      return res.status(400).json({
-        code: "INVALID_UPLOAD_ID",
-        message: "uploadId is required",
-        details: []
-      });
+      return;
     }
 
     try {
@@ -177,6 +184,42 @@ uploadsRouter.get(
       }
 
       return res.status(200).json(record);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+uploadsRouter.get(
+  "/uploads/:uploadId/report",
+  requireAuth,
+  requireRole(["loan_officer", "credit_manager", "risk_analyst", "admin", "auditor"]),
+  async (req, res, next) => {
+    const uploadId = getUploadIdFromParams(req.params.uploadId, res);
+    if (!uploadId) {
+      return;
+    }
+
+    try {
+      const record = await uploadRepository.getUpload(uploadId);
+      if (!record) {
+        return res.status(404).json({
+          code: "UPLOAD_NOT_FOUND",
+          message: "Upload was not found",
+          details: []
+        });
+      }
+
+      const csv = buildValidationReportCsv(
+        record.uploadId,
+        record.summary,
+        record.errors,
+        record.warnings
+      );
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename=upload-${record.uploadId}-report.csv`);
+      return res.status(200).send(csv);
     } catch (error) {
       return next(error);
     }
