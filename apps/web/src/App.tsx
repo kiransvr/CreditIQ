@@ -3,8 +3,19 @@ import { useState as useReactState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AuditLog from "./pages/AuditLog";
@@ -632,140 +643,321 @@ export function App() {
             </div>
 
             <div className="diagnostics" aria-label="Row diagnostics">
-              <div className="diagnostics-header">
-                <h3>Row diagnostics</h3>
-                <div className="quick-filters" role="group" aria-label="Quick diagnostics filters">
-                  <button
-                    type="button"
-                    className="quick-filter-chip"
-                    aria-pressed={diagnosticFilter === "all"}
-                    onClick={() => setDiagnosticFilter("all")}
-                  >
-                    All ({diagnosticCounts.all})
-                  </button>
-                  <button
-                    type="button"
-                    className="quick-filter-chip"
-                    aria-pressed={diagnosticFilter === "errors"}
-                    onClick={() => setDiagnosticFilter("errors")}
-                  >
-                    Errors ({diagnosticCounts.errors})
-                  </button>
-                  <button
-                    type="button"
-                    className="quick-filter-chip"
-                    aria-pressed={diagnosticFilter === "warnings"}
-                    onClick={() => setDiagnosticFilter("warnings")}
-                  >
-                    Warnings ({diagnosticCounts.warnings})
-                  </button>
-                </div>
-                <label htmlFor="diagnostic-filter">Diagnostic filter</label>
-                <select
-                  id="diagnostic-filter"
-                  value={diagnosticFilter}
-                  onChange={(event) => setDiagnosticFilter(event.target.value as DiagnosticFilter)}
-                >
-                  <option value="all">all</option>
-                  <option value="errors">errors</option>
-                  <option value="warnings">warnings</option>
-                </select>
-                <label htmlFor="diagnostic-query">Search diagnostics</label>
-                <input
-                  id="diagnostic-query"
-                  type="text"
-                  value={diagnosticQuery}
-                  onChange={(event) => setDiagnosticQuery(event.target.value)}
-                  placeholder="Search by field, code, or message"
-                />
-                <label htmlFor="diagnostic-sort">Diagnostic sort</label>
-                <select
-                  id="diagnostic-sort"
-                  value={diagnosticSort}
-                  onChange={(event) => {
-                    setDiagnosticSort(event.target.value as DiagnosticSort);
-                    setDiagnosticSortDirection("asc");
-                  }}
-                >
-                  <option value="row">row</option>
-                  <option value="type">type</option>
-                  <option value="code">code</option>
-                </select>
-                <label htmlFor="diagnostic-page-size">Rows per page</label>
-                <select
-                  id="diagnostic-page-size"
-                  value={String(diagnosticPageSize)}
-                  onChange={(event) => setDiagnosticPageSize(Number.parseInt(event.target.value, 10))}
-                >
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-                <p className="diagnostics-meta">
-                  Showing {details.diagnostics?.items?.length ?? 0} of {details.diagnostics?.total ?? 0} diagnostics
-                </p>
-              </div>
+              {useShell ? (
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                  <Stack spacing={1.5}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Row diagnostics
+                    </Typography>
 
-              {details?.diagnostics?.items?.length > 0 ? (
-                <div className="diagnostics-table-wrap">
-                  <table className="diagnostics-table">
-                    <thead>
-                      <tr>
-                        <th scope="col" aria-sort={diagnosticSort === "type" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
-                          <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("type")}>
-                            Type
-                          </button>
-                        </th>
-                        <th scope="col" aria-sort={diagnosticSort === "row" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
-                          <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("row")}>
-                            Row
-                          </button>
-                        </th>
-                        <th scope="col">Field</th>
-                        <th scope="col" aria-sort={diagnosticSort === "code" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
-                          <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("code")}>
-                            Code
-                          </button>
-                        </th>
-                        <th scope="col">Message</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {details.diagnostics.items.map((entry) => (
-                        <tr key={`${entry.type}-${entry.row}-${entry.field}-${entry.code}-${entry.message}`}>
-                          <td>{entry.type}</td>
-                          <td>{entry.row}</td>
-                          <td>{entry.field}</td>
-                          <td>{entry.code}</td>
-                          <td>{entry.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="pagination-controls" aria-label="Diagnostics pagination">
-                    <p className="pagination-meta">
-                      Page {details.diagnostics.page} of {details.diagnostics.totalPages}
-                    </p>
-                    <div className="pagination-buttons">
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }} role="group" aria-label="Quick diagnostics filters">
+                      <Chip
+                        label={`All (${diagnosticCounts.all})`}
+                        clickable
+                        color={diagnosticFilter === "all" ? "primary" : "default"}
+                        variant={diagnosticFilter === "all" ? "filled" : "outlined"}
+                        onClick={() => setDiagnosticFilter("all")}
+                      />
+                      <Chip
+                        label={`Errors (${diagnosticCounts.errors})`}
+                        clickable
+                        color={diagnosticFilter === "errors" ? "error" : "default"}
+                        variant={diagnosticFilter === "errors" ? "filled" : "outlined"}
+                        onClick={() => setDiagnosticFilter("errors")}
+                      />
+                      <Chip
+                        label={`Warnings (${diagnosticCounts.warnings})`}
+                        clickable
+                        color={diagnosticFilter === "warnings" ? "warning" : "default"}
+                        variant={diagnosticFilter === "warnings" ? "filled" : "outlined"}
+                        onClick={() => setDiagnosticFilter("warnings")}
+                      />
+                    </Stack>
+
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gap: 1,
+                        gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }
+                      }}
+                    >
+                      <FormControl size="small">
+                        <InputLabel id="shell-diagnostic-filter-label">Diagnostic filter</InputLabel>
+                        <Select
+                          labelId="shell-diagnostic-filter-label"
+                          label="Diagnostic filter"
+                          value={diagnosticFilter}
+                          onChange={(event) => setDiagnosticFilter(event.target.value as DiagnosticFilter)}
+                        >
+                          <MenuItem value="all">all</MenuItem>
+                          <MenuItem value="errors">errors</MenuItem>
+                          <MenuItem value="warnings">warnings</MenuItem>
+                        </Select>
+                      </FormControl>
+
+                      <TextField
+                        id="shell-diagnostic-query"
+                        size="small"
+                        label="Search diagnostics"
+                        value={diagnosticQuery}
+                        onChange={(event) => setDiagnosticQuery(event.target.value)}
+                        placeholder="Search by field, code, or message"
+                      />
+
+                      <FormControl size="small">
+                        <InputLabel id="shell-diagnostic-sort-label">Diagnostic sort</InputLabel>
+                        <Select
+                          labelId="shell-diagnostic-sort-label"
+                          label="Diagnostic sort"
+                          value={diagnosticSort}
+                          onChange={(event) => {
+                            setDiagnosticSort(event.target.value as DiagnosticSort);
+                            setDiagnosticSortDirection("asc");
+                          }}
+                        >
+                          <MenuItem value="row">row</MenuItem>
+                          <MenuItem value="type">type</MenuItem>
+                          <MenuItem value="code">code</MenuItem>
+                        </Select>
+                      </FormControl>
+
+                      <FormControl size="small">
+                        <InputLabel id="shell-diagnostic-page-size-label">Rows per page</InputLabel>
+                        <Select
+                          labelId="shell-diagnostic-page-size-label"
+                          label="Rows per page"
+                          value={String(diagnosticPageSize)}
+                          onChange={(event) => {
+                            setDiagnosticPageSize(Number.parseInt(event.target.value, 10));
+                            setDiagnosticPage(1);
+                          }}
+                        >
+                          <MenuItem value="10">10</MenuItem>
+                          <MenuItem value="25">25</MenuItem>
+                          <MenuItem value="50">50</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary">
+                      Showing {details.diagnostics?.items?.length ?? 0} of {details.diagnostics?.total ?? 0} diagnostics
+                    </Typography>
+
+                    {details?.diagnostics?.items?.length > 0 ? (
+                      <>
+                        <TableContainer>
+                          <Table size="small" aria-label="Row diagnostics">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>
+                                  <Button size="small" onClick={() => onDiagnosticSortChange("type")}>
+                                    Type {diagnosticSort === "type" ? `(${diagnosticSortDirection})` : ""}
+                                  </Button>
+                                </TableCell>
+                                <TableCell>
+                                  <Button size="small" onClick={() => onDiagnosticSortChange("row")}>
+                                    Row {diagnosticSort === "row" ? `(${diagnosticSortDirection})` : ""}
+                                  </Button>
+                                </TableCell>
+                                <TableCell>Field</TableCell>
+                                <TableCell>
+                                  <Button size="small" onClick={() => onDiagnosticSortChange("code")}>
+                                    Code {diagnosticSort === "code" ? `(${diagnosticSortDirection})` : ""}
+                                  </Button>
+                                </TableCell>
+                                <TableCell>Message</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {details.diagnostics.items.map((entry) => (
+                                <TableRow key={`${entry.type}-${entry.row}-${entry.field}-${entry.code}-${entry.message}`} hover>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={entry.type}
+                                      color={entry.type === "error" ? "error" : "warning"}
+                                      variant="outlined"
+                                    />
+                                  </TableCell>
+                                  <TableCell>{entry.row}</TableCell>
+                                  <TableCell>{entry.field}</TableCell>
+                                  <TableCell>{entry.code}</TableCell>
+                                  <TableCell>{entry.message}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, flexWrap: "wrap" }} aria-label="Diagnostics pagination">
+                          <Typography variant="body2" color="text.secondary">
+                            Page {details.diagnostics.page} of {details.diagnostics.totalPages}
+                          </Typography>
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              type="button"
+                              onClick={() => setDiagnosticPage((current) => Math.max(1, current - 1))}
+                              disabled={details.diagnostics.page <= 1}
+                              size="small"
+                              variant="outlined"
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => setDiagnosticPage((current) => Math.min(details.diagnostics.totalPages, current + 1))}
+                              disabled={details.diagnostics.page >= details.diagnostics.totalPages}
+                              size="small"
+                              variant="outlined"
+                            >
+                              Next
+                            </Button>
+                          </Stack>
+                        </Box>
+                      </>
+                    ) : (
+                      <Alert severity="info">No diagnostics match this filter.</Alert>
+                    )}
+                  </Stack>
+                </Paper>
+              ) : (
+                <>
+                  <div className="diagnostics-header">
+                    <h3>Row diagnostics</h3>
+                    <div className="quick-filters" role="group" aria-label="Quick diagnostics filters">
                       <button
                         type="button"
-                        onClick={() => setDiagnosticPage((current) => Math.max(1, current - 1))}
-                        disabled={details.diagnostics.page <= 1}
+                        className="quick-filter-chip"
+                        aria-pressed={diagnosticFilter === "all"}
+                        onClick={() => setDiagnosticFilter("all")}
                       >
-                        Previous
+                        All ({diagnosticCounts.all})
                       </button>
                       <button
                         type="button"
-                        onClick={() => setDiagnosticPage((current) => Math.min(details.diagnostics.totalPages, current + 1))}
-                        disabled={details.diagnostics.page >= details.diagnostics.totalPages}
+                        className="quick-filter-chip"
+                        aria-pressed={diagnosticFilter === "errors"}
+                        onClick={() => setDiagnosticFilter("errors")}
                       >
-                        Next
+                        Errors ({diagnosticCounts.errors})
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-filter-chip"
+                        aria-pressed={diagnosticFilter === "warnings"}
+                        onClick={() => setDiagnosticFilter("warnings")}
+                      >
+                        Warnings ({diagnosticCounts.warnings})
                       </button>
                     </div>
+                    <label htmlFor="diagnostic-filter">Diagnostic filter</label>
+                    <select
+                      id="diagnostic-filter"
+                      value={diagnosticFilter}
+                      onChange={(event) => setDiagnosticFilter(event.target.value as DiagnosticFilter)}
+                    >
+                      <option value="all">all</option>
+                      <option value="errors">errors</option>
+                      <option value="warnings">warnings</option>
+                    </select>
+                    <label htmlFor="diagnostic-query">Search diagnostics</label>
+                    <input
+                      id="diagnostic-query"
+                      type="text"
+                      value={diagnosticQuery}
+                      onChange={(event) => setDiagnosticQuery(event.target.value)}
+                      placeholder="Search by field, code, or message"
+                    />
+                    <label htmlFor="diagnostic-sort">Diagnostic sort</label>
+                    <select
+                      id="diagnostic-sort"
+                      value={diagnosticSort}
+                      onChange={(event) => {
+                        setDiagnosticSort(event.target.value as DiagnosticSort);
+                        setDiagnosticSortDirection("asc");
+                      }}
+                    >
+                      <option value="row">row</option>
+                      <option value="type">type</option>
+                      <option value="code">code</option>
+                    </select>
+                    <label htmlFor="diagnostic-page-size">Rows per page</label>
+                    <select
+                      id="diagnostic-page-size"
+                      value={String(diagnosticPageSize)}
+                      onChange={(event) => setDiagnosticPageSize(Number.parseInt(event.target.value, 10))}
+                    >
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                    <p className="diagnostics-meta">
+                      Showing {details.diagnostics?.items?.length ?? 0} of {details.diagnostics?.total ?? 0} diagnostics
+                    </p>
                   </div>
-                </div>
-              ) : (
-                <p className="diagnostics-empty">No diagnostics match this filter.</p>
+
+                  {details?.diagnostics?.items?.length > 0 ? (
+                    <div className="diagnostics-table-wrap">
+                      <table className="diagnostics-table">
+                        <thead>
+                          <tr>
+                            <th scope="col" aria-sort={diagnosticSort === "type" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                              <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("type")}>
+                                Type
+                              </button>
+                            </th>
+                            <th scope="col" aria-sort={diagnosticSort === "row" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                              <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("row")}>
+                                Row
+                              </button>
+                            </th>
+                            <th scope="col">Field</th>
+                            <th scope="col" aria-sort={diagnosticSort === "code" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
+                              <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("code")}>
+                                Code
+                              </button>
+                            </th>
+                            <th scope="col">Message</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {details.diagnostics.items.map((entry) => (
+                            <tr key={`${entry.type}-${entry.row}-${entry.field}-${entry.code}-${entry.message}`}>
+                              <td>{entry.type}</td>
+                              <td>{entry.row}</td>
+                              <td>{entry.field}</td>
+                              <td>{entry.code}</td>
+                              <td>{entry.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="pagination-controls" aria-label="Diagnostics pagination">
+                        <p className="pagination-meta">
+                          Page {details.diagnostics.page} of {details.diagnostics.totalPages}
+                        </p>
+                        <div className="pagination-buttons">
+                          <button
+                            type="button"
+                            onClick={() => setDiagnosticPage((current) => Math.max(1, current - 1))}
+                            disabled={details.diagnostics.page <= 1}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiagnosticPage((current) => Math.min(details.diagnostics.totalPages, current + 1))}
+                            disabled={details.diagnostics.page >= details.diagnostics.totalPages}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="diagnostics-empty">No diagnostics match this filter.</p>
+                  )}
+                </>
               )}
             </div>
 
