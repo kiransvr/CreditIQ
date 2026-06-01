@@ -1,5 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { useState as useReactState } from "react";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import AuditLog from "./pages/AuditLog";
 import { AppShell } from "./shell/AppShell";
 
@@ -469,7 +476,8 @@ export function App() {
             <p className="note">Auditor view: upload is hidden; you can fetch existing upload and download report.</p>
           )}
 
-          <div className="actions" aria-label="upload actions">
+          {!useShell ? (
+            <div className="actions" aria-label="upload actions">
             <label htmlFor="upload-id">Upload ID</label>
             <input
               id="upload-id"
@@ -490,7 +498,8 @@ export function App() {
                 Download Report
               </button>
             </div>
-          </div>
+            </div>
+          ) : null}
 
           {role === "credit_manager" || role === "admin" ? (
             <section className="override-panel">
@@ -773,7 +782,7 @@ export function App() {
           </section>
         ) : null}
 
-        <p className={statusClassName}>{message}</p>
+        {!useShell ? <p className={statusClassName}>{message}</p> : null}
       </section>
     )}
   </>
@@ -786,6 +795,8 @@ export function App() {
   const shellTotalRows = details?.summary.totalRows ?? 0;
   const shellErrorRows = details?.summary.errorRows ?? 0;
   const shellRisk = details ? toRiskLabel(details.recommendation.riskCategory) : "Pending";
+  const shellStatusSeverity =
+    state === "error" ? "error" : state === "success" ? "success" : state === "working" ? "warning" : "info";
 
   if (useShell) {
     return (
@@ -819,6 +830,43 @@ export function App() {
               <p className="shell-kpi-value">{shellRisk}</p>
             </article>
           </section>
+
+          {!showAuditLog ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Stack spacing={2}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  Upload Operations
+                </Typography>
+                <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr 1fr" } }}>
+                  <TextField
+                    id="shell-upload-id"
+                    label="Upload ID"
+                    value={uploadId}
+                    onChange={(event) => setUploadId(event.target.value)}
+                    placeholder="Paste uploadId"
+                    size="small"
+                  />
+                  <Button variant="contained" onClick={validateUpload} disabled={state === "working"}>
+                    Validate Upload
+                  </Button>
+                  <Button variant="outlined" onClick={fetchUploadDetails} disabled={state === "working"}>
+                    Fetch Details
+                  </Button>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                  <Button variant="outlined" onClick={downloadReport} disabled={state === "working"}>
+                    Download Report
+                  </Button>
+                  {(role === "credit_manager" || role === "admin") && (
+                    <Button variant="contained" color="secondary" onClick={submitOverride} disabled={state === "working" || overrideReason.trim().length < 10}>
+                      Submit Override
+                    </Button>
+                  )}
+                </Box>
+                <Alert severity={shellStatusSeverity}>{message}</Alert>
+              </Stack>
+            </Paper>
+          ) : null}
 
           <section className="shell-stage">{pageContent}</section>
         </section>
