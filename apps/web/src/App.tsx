@@ -1,11 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
 import { useState as useReactState } from "react";
 import Alert from "@mui/material/Alert";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
+import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
@@ -18,6 +24,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AuditLog from "./pages/AuditLog";
 import { AppShell } from "./shell/AppShell";
 
@@ -541,106 +548,258 @@ export function App() {
 
         {details ? (
           <section className="summary">
-            <h2>Validation Summary</h2>
-            <div className="metric-grid">
-              <p>Upload: {details.uploadId}</p>
-              <p>Status: {details.status}</p>
-              <p>Total rows: {details.summary.totalRows}</p>
-              <p>Valid rows: {details.summary.validRows}</p>
-              <p>Error rows: {details.summary.errorRows}</p>
-              <p>Warning rows: {details.summary.warningRows}</p>
-            </div>
-            <div className="summary-row">
-              <span className="decision-badge">Decision: {toDecisionLabel(details.recommendation.decision)}</span>
-              <span className={riskClassName}>Risk: {toRiskLabel(details.recommendation.riskCategory)}</span>
-            </div>
-            <p>Suggested amount: {details.recommendation.suggestedAmount}</p>
+            {useShell ? (
+              <Stack spacing={2}>
+                <Typography variant="h6">Validation Summary</Typography>
 
-            <div className="score-block" aria-label="Borrower score">
-              <div className="score-header">
-                <span>Borrower score</span>
-                <strong>{details.recommendation.score} / 1000</strong>
-              </div>
-              <div className="score-meter" role="progressbar" aria-valuemin={0} aria-valuemax={1000} aria-valuenow={details.recommendation.score}>
-                <div className="score-fill" style={{ width: scoreFillWidth }} />
-              </div>
-              <p className="score-band">Score band: {toScoreBand(details.recommendation.score)}</p>
-            </div>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 1.5,
+                    gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }
+                  }}
+                >
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="caption" color="text.secondary">Upload</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700 }}>{details.uploadId}</Typography>
+                      <Typography variant="body2" color="text.secondary">Status: {details.status}</Typography>
+                    </CardContent>
+                  </Card>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="caption" color="text.secondary">Rows</Typography>
+                      <Typography variant="body2">Total: {details.summary.totalRows}</Typography>
+                      <Typography variant="body2">Valid: {details.summary.validRows}</Typography>
+                      <Typography variant="body2">Errors: {details.summary.errorRows}</Typography>
+                      <Typography variant="body2">Warnings: {details.summary.warningRows}</Typography>
+                    </CardContent>
+                  </Card>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="caption" color="text.secondary">Recommendation</Typography>
+                      <Stack direction="row" spacing={1} sx={{ mt: 0.5, mb: 1 }}>
+                        <Chip label={`Decision: ${toDecisionLabel(details.recommendation.decision)}`} color="primary" size="small" />
+                        <Chip label={`Risk: ${toRiskLabel(details.recommendation.riskCategory)}`} color="secondary" size="small" />
+                      </Stack>
+                      <Typography variant="body2">Suggested amount: {details.recommendation.suggestedAmount}</Typography>
+                    </CardContent>
+                  </Card>
+                </Box>
 
-            <div className="rationale">
-              <h3>Decision rationale</h3>
-              {details.recommendation.reasons.length > 0 ? (
-                <ul>
-                  {details.recommendation.reasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No rationale returned.</p>
-              )}
-            </div>
-
-            <div className="explanation" aria-label="Score explanation">
-              <h3>Score explanation</h3>
-              <p>Base score: {details.recommendation.explanation.baseScore}</p>
-
-              <div className="waterfall" aria-label="Score waterfall">
-                <h4>Score waterfall</h4>
-                <div className="waterfall-row">
-                  <span>Base</span>
-                  <div className="waterfall-track">
-                    <div
-                      className="waterfall-fill base"
-                      style={{ width: `${Math.min(Math.max(details.recommendation.explanation.baseScore, 0), 1000) / 10}%` }}
+                <Paper variant="outlined" sx={{ p: 2 }} aria-label="Borrower score">
+                  <Stack spacing={1}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+                      <Typography variant="subtitle2">Borrower score</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {details.recommendation.score} / 1000
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(Math.max(details.recommendation.score, 0), 1000) / 10}
                     />
-                  </div>
-                  <strong>{details.recommendation.explanation.baseScore}</strong>
+                    <Typography variant="body2" color="text.secondary">
+                      Score band: {toScoreBand(details.recommendation.score)}
+                    </Typography>
+                  </Stack>
+                </Paper>
+
+                <Accordion defaultExpanded>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2">Decision rationale</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {details.recommendation.reasons.length > 0 ? (
+                      <Stack component="ul" sx={{ m: 0, pl: 2 }}>
+                        {details.recommendation.reasons.map((reason) => (
+                          <Typography key={reason} component="li" variant="body2">
+                            {reason}
+                          </Typography>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">No rationale returned.</Typography>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+
+                <Accordion defaultExpanded>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2">Score explanation</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1.5} aria-label="Score explanation">
+                      <Typography variant="body2">Base score: {details.recommendation.explanation.baseScore}</Typography>
+                      <Box aria-label="Score waterfall">
+                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>Score waterfall</Typography>
+                        <Stack spacing={1}>
+                          {waterfallSteps.length > 0 ? (
+                            waterfallSteps.map((step) => (
+                              <Box key={`${step.key}-${step.label}-${step.endScore}`}>
+                                <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+                                  <Typography variant="caption">{step.label}</Typography>
+                                  <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                    {formatImpact(step.impact)}
+                                  </Typography>
+                                </Box>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={Math.min(Math.max(step.endScore, 0), 1000) / 10}
+                                  color={step.impact >= 0 ? "success" : "warning"}
+                                />
+                              </Box>
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No component deltas in this run.</Typography>
+                          )}
+                        </Stack>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          Final score: {details.recommendation.score}
+                        </Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>Component impacts</Typography>
+                        {details.recommendation.explanation.components.length > 0 ? (
+                          <Stack spacing={1}>
+                            {details.recommendation.explanation.components.map((component) => (
+                              <Box key={`${component.key}-${component.label}`} sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{component.label}</Typography>
+                                  <Chip size="small" label={formatImpact(component.impact)} variant="outlined" />
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary">{component.detail}</Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">No score components available.</Typography>
+                        )}
+                      </Box>
+
+                      <Box>
+                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>Policy notes</Typography>
+                        {details.recommendation.explanation.policyNotes.length > 0 ? (
+                          <Stack component="ul" sx={{ m: 0, pl: 2 }}>
+                            {details.recommendation.explanation.policyNotes.map((note) => (
+                              <Typography key={note} component="li" variant="body2">
+                                {note}
+                              </Typography>
+                            ))}
+                          </Stack>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">No policy notes returned.</Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              </Stack>
+            ) : (
+              <>
+                <h2>Validation Summary</h2>
+                <div className="metric-grid">
+                  <p>Upload: {details.uploadId}</p>
+                  <p>Status: {details.status}</p>
+                  <p>Total rows: {details.summary.totalRows}</p>
+                  <p>Valid rows: {details.summary.validRows}</p>
+                  <p>Error rows: {details.summary.errorRows}</p>
+                  <p>Warning rows: {details.summary.warningRows}</p>
                 </div>
-                {waterfallSteps.length > 0 ? (
-                  waterfallSteps.map((step) => (
-                    <div className="waterfall-row" key={`${step.key}-${step.label}-${step.endScore}`}>
-                      <span>{step.label}</span>
+                <div className="summary-row">
+                  <span className="decision-badge">Decision: {toDecisionLabel(details.recommendation.decision)}</span>
+                  <span className={riskClassName}>Risk: {toRiskLabel(details.recommendation.riskCategory)}</span>
+                </div>
+                <p>Suggested amount: {details.recommendation.suggestedAmount}</p>
+
+                <div className="score-block" aria-label="Borrower score">
+                  <div className="score-header">
+                    <span>Borrower score</span>
+                    <strong>{details.recommendation.score} / 1000</strong>
+                  </div>
+                  <div className="score-meter" role="progressbar" aria-valuemin={0} aria-valuemax={1000} aria-valuenow={details.recommendation.score}>
+                    <div className="score-fill" style={{ width: scoreFillWidth }} />
+                  </div>
+                  <p className="score-band">Score band: {toScoreBand(details.recommendation.score)}</p>
+                </div>
+
+                <div className="rationale">
+                  <h3>Decision rationale</h3>
+                  {details.recommendation.reasons.length > 0 ? (
+                    <ul>
+                      {details.recommendation.reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No rationale returned.</p>
+                  )}
+                </div>
+
+                <div className="explanation" aria-label="Score explanation">
+                  <h3>Score explanation</h3>
+                  <p>Base score: {details.recommendation.explanation.baseScore}</p>
+
+                  <div className="waterfall" aria-label="Score waterfall">
+                    <h4>Score waterfall</h4>
+                    <div className="waterfall-row">
+                      <span>Base</span>
                       <div className="waterfall-track">
                         <div
-                          className={`waterfall-fill ${step.impact >= 0 ? "positive" : "negative"}`}
-                          style={{ width: `${Math.min(Math.max(step.endScore, 0), 1000) / 10}%` }}
+                          className="waterfall-fill base"
+                          style={{ width: `${Math.min(Math.max(details.recommendation.explanation.baseScore, 0), 1000) / 10}%` }}
                         />
                       </div>
-                      <strong>{formatImpact(step.impact)}</strong>
+                      <strong>{details.recommendation.explanation.baseScore}</strong>
                     </div>
-                  ))
-                ) : (
-                  <p className="waterfall-empty">No component deltas in this run.</p>
-                )}
-                <p className="waterfall-final">Final score: {details.recommendation.score}</p>
-              </div>
+                    {waterfallSteps.length > 0 ? (
+                      waterfallSteps.map((step) => (
+                        <div className="waterfall-row" key={`${step.key}-${step.label}-${step.endScore}`}>
+                          <span>{step.label}</span>
+                          <div className="waterfall-track">
+                            <div
+                              className={`waterfall-fill ${step.impact >= 0 ? "positive" : "negative"}`}
+                              style={{ width: `${Math.min(Math.max(step.endScore, 0), 1000) / 10}%` }}
+                            />
+                          </div>
+                          <strong>{formatImpact(step.impact)}</strong>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="waterfall-empty">No component deltas in this run.</p>
+                    )}
+                    <p className="waterfall-final">Final score: {details.recommendation.score}</p>
+                  </div>
 
-              <h4>Component impacts</h4>
-              {details.recommendation.explanation.components.length > 0 ? (
-                <ul className="component-list">
-                  {details.recommendation.explanation.components.map((component) => (
-                    <li key={`${component.key}-${component.label}`}>
-                      <strong>{component.label}</strong>
-                      <span className="impact-chip">{formatImpact(component.impact)}</span>
-                      <p>{component.detail}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No score components available.</p>
-              )}
+                  <h4>Component impacts</h4>
+                  {details.recommendation.explanation.components.length > 0 ? (
+                    <ul className="component-list">
+                      {details.recommendation.explanation.components.map((component) => (
+                        <li key={`${component.key}-${component.label}`}>
+                          <strong>{component.label}</strong>
+                          <span className="impact-chip">{formatImpact(component.impact)}</span>
+                          <p>{component.detail}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No score components available.</p>
+                  )}
 
-              <h4>Policy notes</h4>
-              {details.recommendation.explanation.policyNotes.length > 0 ? (
-                <ul>
-                  {details.recommendation.explanation.policyNotes.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No policy notes returned.</p>
-              )}
-            </div>
+                  <h4>Policy notes</h4>
+                  {details.recommendation.explanation.policyNotes.length > 0 ? (
+                    <ul>
+                      {details.recommendation.explanation.policyNotes.map((note) => (
+                        <li key={note}>{note}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No policy notes returned.</p>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="diagnostics" aria-label="Row diagnostics">
               {useShell ? (
