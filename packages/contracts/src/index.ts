@@ -18,3 +18,21 @@ export interface ApiErrorResponse {
   details: ApiErrorDetail[];
   traceId?: string;
 }
+
+export interface UploadRecommendation {
+  decision: "proceed" | "lower_loan" | "manual_review" | "reject";
+  suggestedAmount: number;
+  score: number;
+  riskCategory: "low" | "medium" | "high" | "very_high";
+  reasons: string[];
+  explanation: {
+    baseScore: number;
+    components: Array<{
+      key: string;
+      label: string;
+      impact: number;
+      detail: string;
+    }>;
+    policyNotes: string[];
+  };
+}

@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { getDbPool, hasDatabaseConfig } from "../db/client.js";
+import { recordAuditEvent } from "./auditStore.js";
 import type { RecommendationResult } from "./recommendation.js";
 import type { BorrowerRow, ValidationIssue, ValidationResult, ValidationSummary } from "./validation.js";
 
@@ -38,7 +39,19 @@ interface UploadOverride {
 interface UploadRecommendation {
   decision: string;
   suggestedAmount: number;
+  score: number;
+  riskCategory: string;
   reasons: string[];
+  explanation: {
+    baseScore: number;
+    components: Array<{
+      key: string;
+      label: string;
+      impact: number;
+      detail: string;
+    }>;
+    policyNotes: string[];
+  };
 }
 
 interface OverrideInput {
@@ -76,6 +89,23 @@ interface UploadDetails extends UploadValidationRecord {
   override: UploadOverride | null;
 }
 
+interface DiagnosticsPageQuery {
+  page: number;
+  pageSize: number;
+  filter?: "all" | "errors" | "warnings";
+  sort?: "row" | "type" | "code";
+  direction?: "asc" | "desc";
+  search?: string;
+}
+
+interface DiagnosticsPage {
+  items: ValidationIssue[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 interface UploadRepository {
   createUpload(input: CreateUploadInput): Promise<UploadRecord>;
   validateUpload(
@@ -85,10 +115,10 @@ interface UploadRepository {
     recommendation: RecommendationResult
   ): Promise<UploadValidationRecord | null>;
   getUpload(uploadId: string): Promise<UploadDetails | null>;
+  getUploadDiagnosticsPage(uploadId: string, query: DiagnosticsPageQuery): Promise<DiagnosticsPage | null>;
   getUploadFileSource(uploadId: string): Promise<UploadFileSource | null>;
   overrideUpload(uploadId: string, input: OverrideInput): Promise<UploadDetails | null>;
 }
-
 interface UploadMemoryEntity {
   uploadId: string;
   fileName: string;
@@ -117,6 +147,57 @@ function getFirstRowOrThrow<T>(rows: T[], errorMessage: string): T {
 }
 
 class InMemoryUploadRepository implements UploadRepository {
+    async getUploadDiagnosticsPage(uploadId: string, query: DiagnosticsPageQuery): Promise<DiagnosticsPage | null> {
+      const existing = this.uploads.get(uploadId);
+      if (!existing) return null;
+
+      // Merge errors and warnings, add type
+      let diagnostics = [
+        ...existing.errors.map((d) => ({ ...d, type: "error" })),
+        ...existing.warnings.map((d) => ({ ...d, type: "warning" }))
+      ];
+
+      // Filter
+      if (query.filter === "errors") diagnostics = diagnostics.filter((d) => d.type === "error");
+      if (query.filter === "warnings") diagnostics = diagnostics.filter((d) => d.type === "warning");
+
+      // Search
+      if (query.search) {
+        const s = query.search.toLowerCase();
+        diagnostics = diagnostics.filter((d) =>
+          (d.field?.toLowerCase().includes(s) || d.code?.toLowerCase().includes(s) || d.message?.toLowerCase().includes(s))
+        );
+      }
+
+      // Sort
+      if (query.sort) {
+        diagnostics.sort((a, b) => {
+          let cmp = 0;
+          if (query.sort === "row") cmp = (a.row ?? 0) - (b.row ?? 0);
+          else if (query.sort === "type") cmp = (a.type > b.type ? 1 : a.type < b.type ? -1 : 0);
+          else if (query.sort === "code") cmp = (a.code > b.code ? 1 : a.code < b.code ? -1 : 0);
+          return query.direction === "desc" ? -cmp : cmp;
+        });
+      }
+
+      const total = diagnostics.length;
+      const pageSize = query.pageSize;
+      const page = Math.max(1, query.page);
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const start = (page - 1) * pageSize;
+      const items = diagnostics.slice(start, start + pageSize);
+
+      // Remove .type before returning (to match ValidationIssue)
+      const resultItems = items.map(({ type, ...rest }) => rest);
+
+      return {
+        items: resultItems,
+        total,
+        page,
+        pageSize,
+        totalPages
+      };
+    }
   private readonly uploads = new Map<string, UploadMemoryEntity>();
 
   async createUpload(input: CreateUploadInput): Promise<UploadRecord> {
@@ -146,11 +227,23 @@ class InMemoryUploadRepository implements UploadRepository {
       recommendation: {
         decision: "manual_review",
         suggestedAmount: 0,
-        reasons: []
+        score: 0,
+        riskCategory: "very_high",
+        reasons: [],
+        explanation: {
+          baseScore: 0,
+          components: [],
+          policyNotes: []
+        }
       }
     };
 
     this.uploads.set(uploadId, entity);
+
+    recordAuditEvent(input.actor.username, "upload_created", "upload", uploadId, {
+      fileName: input.fileName,
+      templateVersion: input.templateVersion
+    });
 
     return {
       uploadId,
@@ -182,8 +275,18 @@ class InMemoryUploadRepository implements UploadRepository {
     existing.recommendation = {
       decision: recommendation.decision,
       suggestedAmount: recommendation.suggestedAmount,
-      reasons: recommendation.reasons
+      score: recommendation.score,
+      riskCategory: recommendation.riskCategory,
+      reasons: recommendation.reasons,
+      explanation: recommendation.explanation
     };
+
+    recordAuditEvent(existing.createdBy, "upload_validated", "upload", uploadId, {
+      totalRows: result.summary.totalRows,
+      errorRows: result.summary.errorRows,
+      warningRows: result.summary.warningRows,
+      recommendation
+    });
 
     return {
       uploadId,
@@ -243,6 +346,11 @@ class InMemoryUploadRepository implements UploadRepository {
       overriddenBy: input.actor.username,
       overriddenAt: new Date().toISOString()
     };
+
+    recordAuditEvent(input.actor.username, "upload_overridden", "upload", uploadId, {
+      decision: input.decision,
+      reason: input.reason
+    });
 
     return {
       uploadId,
@@ -310,6 +418,72 @@ function toIssueRows(issues: ValidationIssue[], issueType: IssueType) {
 }
 
 class PostgresUploadRepository implements UploadRepository {
+    async getUploadDiagnosticsPage(uploadId: string, query: DiagnosticsPageQuery): Promise<DiagnosticsPage | null> {
+      // Build WHERE clause for filter
+      let where = 'upload_id = $1';
+      const params: any[] = [uploadId];
+      let idx = 2;
+      if (query.filter === "errors") {
+        where += ` AND issue_type = 'error'`;
+      } else if (query.filter === "warnings") {
+        where += ` AND issue_type = 'warning'`;
+      }
+      if (query.search) {
+        where += ` AND (` +
+          `LOWER(field_name) LIKE $${idx} OR LOWER(issue_code) LIKE $${idx} OR LOWER(issue_message) LIKE $${idx})`;
+        params.push(`%${query.search.toLowerCase()}%`);
+        idx++;
+      }
+
+      // Sorting
+      let orderBy = 'row_number ASC';
+      if (query.sort === "row") orderBy = `row_number ${query.direction === "desc" ? "DESC" : "ASC"}`;
+      else if (query.sort === "type") orderBy = `issue_type ${query.direction === "desc" ? "DESC" : "ASC"}`;
+      else if (query.sort === "code") orderBy = `issue_code ${query.direction === "desc" ? "DESC" : "ASC"}`;
+
+      // Count total
+      const countResult = await this.pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM validation_issues WHERE ${where}`,
+        params
+      );
+      const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
+      const pageSize = query.pageSize;
+      const page = Math.max(1, query.page);
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const offset = (page - 1) * pageSize;
+
+      // Fetch page
+      const issuesResult = await this.pool.query<{
+        row_number: number;
+        field_name: string;
+        issue_code: string;
+        issue_message: string;
+        issue_type: IssueType;
+      }>(
+        `SELECT row_number, field_name, issue_code, issue_message, issue_type
+         FROM validation_issues
+         WHERE ${where}
+         ORDER BY ${orderBy}
+         OFFSET $${idx} LIMIT $${idx + 1}`,
+        [...params, offset, pageSize]
+      );
+
+      // Remove .type (not needed, but keep ValidationIssue shape)
+      const items = issuesResult.rows.map((issue) => ({
+        row: issue.row_number,
+        field: issue.field_name,
+        code: issue.issue_code,
+        message: issue.issue_message
+      }));
+
+      return {
+        items,
+        total,
+        page,
+        pageSize,
+        totalPages
+      };
+    }
   constructor(private readonly pool: Pool) {}
 
   async createUpload(input: CreateUploadInput): Promise<UploadRecord> {
@@ -425,9 +599,20 @@ class PostgresUploadRepository implements UploadRepository {
          SET status = 'validated',
              recommended_decision = $2,
              recommended_amount = $3,
-             recommendation_reasons = $4::jsonb
+             recommendation_reasons = $4::jsonb,
+             recommended_score = $5,
+             recommended_risk_category = $6,
+             recommendation_explanation = $7::jsonb
          WHERE id = $1`,
-        [uploadId, recommendation.decision, recommendation.suggestedAmount, JSON.stringify(recommendation.reasons)]
+        [
+          uploadId,
+          recommendation.decision,
+          recommendation.suggestedAmount,
+          JSON.stringify(recommendation.reasons),
+          recommendation.score,
+          recommendation.riskCategory,
+          JSON.stringify(recommendation.explanation)
+        ]
       );
 
       await client.query(
@@ -457,7 +642,10 @@ class PostgresUploadRepository implements UploadRepository {
         recommendation: {
           decision: recommendation.decision,
           suggestedAmount: recommendation.suggestedAmount,
-          reasons: recommendation.reasons
+          score: recommendation.score,
+          riskCategory: recommendation.riskCategory,
+          reasons: recommendation.reasons,
+          explanation: recommendation.explanation
         }
       };
     } catch (error) {
@@ -485,6 +673,20 @@ class PostgresUploadRepository implements UploadRepository {
       recommended_decision: string | null;
       recommended_amount: string | null;
       recommendation_reasons: string[] | null;
+      recommended_score: number | null;
+      recommended_risk_category: string | null;
+      recommendation_explanation:
+        | {
+            baseScore?: number;
+            components?: Array<{
+              key?: string;
+              label?: string;
+              impact?: number;
+              detail?: string;
+            }>;
+            policyNotes?: string[];
+          }
+        | null;
     }>(
       `SELECT u.id,
               u.status,
@@ -500,7 +702,10 @@ class PostgresUploadRepository implements UploadRepository {
               ous.username AS overridden_by_username,
               u.recommended_decision,
               u.recommended_amount::text,
-              COALESCE(u.recommendation_reasons, '[]'::jsonb) AS recommendation_reasons
+              COALESCE(u.recommendation_reasons, '[]'::jsonb) AS recommendation_reasons,
+              u.recommended_score,
+              u.recommended_risk_category,
+              COALESCE(u.recommendation_explanation, '{}'::jsonb) AS recommendation_explanation
        FROM uploads u
        INNER JOIN institutions i ON i.id = u.institution_id
        INNER JOIN users us ON us.id = u.uploaded_by
@@ -589,7 +794,19 @@ class PostgresUploadRepository implements UploadRepository {
       recommendation: {
         decision: upload.recommended_decision ?? "manual_review",
         suggestedAmount: Number.parseFloat(upload.recommended_amount ?? "0"),
-        reasons: upload.recommendation_reasons ?? []
+        score: upload.recommended_score ?? 0,
+        riskCategory: upload.recommended_risk_category ?? "very_high",
+        reasons: upload.recommendation_reasons ?? [],
+        explanation: {
+          baseScore: upload.recommendation_explanation?.baseScore ?? 0,
+          components: (upload.recommendation_explanation?.components ?? []).map((component) => ({
+            key: component.key ?? "unknown",
+            label: component.label ?? "Unknown",
+            impact: component.impact ?? 0,
+            detail: component.detail ?? ""
+          })),
+          policyNotes: upload.recommendation_explanation?.policyNotes ?? []
+        }
       },
       fileName: upload.file_name,
       fileType: upload.file_type,

@@ -17,13 +17,21 @@ const headerAliases: Record<string, string> = {
   requested_tenure: "requestedTenure"
 };
 
+const blockedKeys = new Set(["__proto__", "prototype", "constructor"]);
+
 function normalizeHeader(value: string): string {
   return value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
 }
 
 function toCanonicalKey(value: string): string {
   const normalized = normalizeHeader(value);
-  return headerAliases[normalized] ?? value.trim();
+  const alias = headerAliases[normalized];
+  return Object.hasOwn(headerAliases, normalized) && typeof alias === "string" ? alias : value.trim();
+}
+
+function isBlockedKey(value: string): boolean {
+  const key = value.trim().toLowerCase();
+  return blockedKeys.has(key);
 }
 
 function toCellValue(value: unknown): string | number | null {
@@ -39,52 +47,34 @@ function toCellValue(value: unknown): string | number | null {
     return value ? "true" : "false";
   }
 
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
   return String(value);
 }
 
-export function parseBorrowerRowsFromUpload(fileName: string, fileContent: Buffer): BorrowerRow[] {
-  if (fileContent.length === 0) {
-    throw new Error("Uploaded file is empty");
+function mapRawRow(rawRow: Record<string, unknown>): BorrowerRow {
+  const mapped = Object.create(null) as BorrowerRow;
+
+  for (const [rawKey, rawValue] of Object.entries(rawRow)) {
+    if (!rawKey.trim()) {
+      continue;
+    }
+
+    const canonicalKey = toCanonicalKey(rawKey);
+    if (isBlockedKey(canonicalKey)) {
+      continue;
+    }
+
+    mapped[canonicalKey] = toCellValue(rawValue);
   }
 
-  let workbook: XLSX.WorkBook;
-  try {
-    workbook = XLSX.read(fileContent, { type: "buffer" });
-  } catch {
-    throw new Error(`Unable to parse file ${fileName}. Ensure it is valid CSV or XLSX.`);
-  }
+  return mapped;
+}
 
-  const firstSheetName = workbook.SheetNames[0];
-  if (!firstSheetName) {
-    throw new Error("Uploaded file does not contain a readable sheet");
-  }
-
-  const firstSheet = workbook.Sheets[firstSheetName];
-  if (!firstSheet) {
-    throw new Error("Uploaded file does not contain a readable worksheet");
-  }
-
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
-    defval: null,
-    raw: false
-  });
-
-  const parsedRows: BorrowerRow[] = rawRows
-    .map((rawRow) => {
-      const mapped: BorrowerRow = {};
-
-      for (const [rawKey, rawValue] of Object.entries(rawRow)) {
-        if (!rawKey.trim()) {
-          continue;
-        }
-
-        const canonicalKey = toCanonicalKey(rawKey);
-        mapped[canonicalKey] = toCellValue(rawValue);
-      }
-
-      return mapped;
-    })
-    .filter((row) => Object.keys(row).length > 0);
+function finalizeRows(rows: BorrowerRow[]): BorrowerRow[] {
+  const parsedRows = rows.filter((row) => Object.keys(row).length > 0);
 
   if (parsedRows.length === 0) {
     throw new Error("Uploaded file has no data rows");
@@ -95,4 +85,110 @@ export function parseBorrowerRowsFromUpload(fileName: string, fileContent: Buffe
   }
 
   return parsedRows;
+}
+
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function parseCsvRows(fileContent: Buffer): BorrowerRow[] {
+  const text = fileContent.toString("utf-8").replace(/^\uFEFF/, "");
+  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+  const headerLine = lines[0];
+  if (!headerLine) {
+    throw new Error("Uploaded file has no data rows");
+  }
+
+  const headers = parseCsvLine(headerLine).map((header) => header.trim());
+  const dataLines = lines.slice(1);
+
+  const rows = dataLines.map((line) => {
+    const values = parseCsvLine(line);
+    const rawRow: Record<string, unknown> = Object.create(null);
+
+    headers.forEach((header, index) => {
+      const value = values[index];
+      rawRow[header] = value === undefined || value.trim().length === 0 ? null : value;
+    });
+
+    return mapRawRow(rawRow);
+  });
+
+  return finalizeRows(rows);
+}
+
+async function parseXlsxRows(fileContent: Buffer): Promise<BorrowerRow[]> {
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(fileContent, { type: "buffer" });
+  } catch {
+    throw new Error("Unable to parse file. Ensure it is valid CSV or XLSX.");
+  }
+
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) {
+    throw new Error("Unable to parse file. Ensure it is valid CSV or XLSX.");
+  }
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) {
+    throw new Error("Unable to parse file. Ensure it is valid CSV or XLSX.");
+  }
+  let rows: Record<string, unknown>[] = [];
+  try {
+    rows = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+  } catch {
+    throw new Error("Unable to parse file. Ensure it is valid CSV or XLSX.");
+  }
+  if (rows.length === 0) {
+    throw new Error("Unable to parse file. Ensure it is valid CSV or XLSX.");
+  }
+  const mappedRows = rows.map(mapRawRow);
+  return finalizeRows(mappedRows);
+}
+
+export async function parseBorrowerRowsFromUpload(fileName: string, fileContent: Buffer): Promise<BorrowerRow[]> {
+  if (fileContent.length === 0) {
+    throw new Error("Uploaded file is empty");
+  }
+
+  const lowerFileName = fileName.toLowerCase();
+
+  if (lowerFileName.endsWith(".csv")) {
+    return parseCsvRows(fileContent);
+  }
+
+  if (lowerFileName.endsWith(".xlsx")) {
+    return parseXlsxRows(fileContent);
+  }
+
+  throw new Error(`Unable to parse file ${fileName}. Ensure it is valid CSV or XLSX.`);
 }

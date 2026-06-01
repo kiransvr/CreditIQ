@@ -1,0 +1,4 @@
+customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure
+CUST-010,not-a-date,10000,6000,35000,12
+CUST-011,2024-05-02,,7100,15000,12
+CUST-012,2024-01-15,abc,5200,20000,8

@@ -3,7 +3,18 @@ import type { ValidationIssue, ValidationSummary } from "./validation.js";
 interface ReportRecommendation {
   decision: string;
   suggestedAmount: number;
+  score: number;
+  riskCategory: string;
   reasons: string[];
+  explanation: {
+    baseScore: number;
+    components: Array<{
+      label: string;
+      impact: number;
+      detail: string;
+    }>;
+    policyNotes: string[];
+  };
 }
 
 function toCsvCell(value: string | number): string {
@@ -29,8 +40,19 @@ export function buildValidationReportCsv(
   lines.push(`summary,uploadId,${toCsvCell(uploadId)}`);
   lines.push(`summary,recommendedDecision,${toCsvCell(recommendation.decision)}`);
   lines.push(`summary,suggestedAmount,${recommendation.suggestedAmount}`);
+  lines.push(`summary,score,${recommendation.score}`);
+  lines.push(`summary,riskCategory,${toCsvCell(recommendation.riskCategory)}`);
+  lines.push(`summary,baseScore,${recommendation.explanation.baseScore}`);
   if (recommendation.reasons[0]) {
     lines.push(`summary,topRecommendationReason,${toCsvCell(recommendation.reasons[0])}`);
+  }
+  if (recommendation.explanation.components[0]) {
+    const topComponent = recommendation.explanation.components[0];
+    lines.push(`summary,topScoreComponent,${toCsvCell(topComponent.label)}`);
+    lines.push(`summary,topScoreImpact,${topComponent.impact}`);
+  }
+  if (recommendation.explanation.policyNotes[0]) {
+    lines.push(`summary,topPolicyNote,${toCsvCell(recommendation.explanation.policyNotes[0])}`);
   }
   lines.push("");
 
