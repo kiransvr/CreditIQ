@@ -519,7 +519,7 @@ export function App() {
             </div>
           ) : null}
 
-          {role === "credit_manager" || role === "admin" ? (
+          {!useShell && (role === "credit_manager" || role === "admin") ? (
             <section className="override-panel">
               <h2>Manual Override</h2>
               <label htmlFor="override-decision">Decision</label>
@@ -1209,9 +1209,48 @@ export function App() {
                     Download Report
                   </Button>
                   {(role === "credit_manager" || role === "admin") && (
-                    <Button variant="contained" color="secondary" onClick={submitOverride} disabled={state === "working" || overrideReason.trim().length < 10}>
-                      Submit Override
-                    </Button>
+                    <Box sx={{ display: "grid", gap: 1, width: { xs: "100%", md: "min(520px, 100%)" } }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        Manual Override
+                      </Typography>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel id="shell-override-decision-label">Decision</InputLabel>
+                        <Select
+                          labelId="shell-override-decision-label"
+                          id="shell-override-decision"
+                          label="Decision"
+                          value={overrideDecision}
+                          onChange={(event) => setOverrideDecision(event.target.value)}
+                        >
+                          <MenuItem value="proceed">proceed</MenuItem>
+                          <MenuItem value="lower_loan">lower_loan</MenuItem>
+                          <MenuItem value="manual_review">manual_review</MenuItem>
+                          <MenuItem value="reject">reject</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <TextField
+                        id="shell-override-reason"
+                        label="Reason"
+                        value={overrideReason}
+                        onChange={(event) => setOverrideReason(event.target.value)}
+                        placeholder="Mandatory override justification"
+                        multiline
+                        minRows={3}
+                        size="small"
+                        fullWidth
+                      />
+                      <Typography variant="caption" color={overrideReason.trim().length >= 10 ? "success.main" : "text.secondary"}>
+                        Minimum 10 characters required.
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={submitOverride}
+                        disabled={state === "working" || overrideReason.trim().length < 10}
+                      >
+                        Submit Override
+                      </Button>
+                    </Box>
                   )}
                 </Box>
                 <Alert severity={shellStatusSeverity}>{message}</Alert>
