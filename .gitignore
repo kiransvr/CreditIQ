@@ -7,3 +7,5 @@ coverage/
 .vscode/
 .DS_Store
 apps/web/.vite/
+apps/web/playwright-report/
+apps/web/test-results/

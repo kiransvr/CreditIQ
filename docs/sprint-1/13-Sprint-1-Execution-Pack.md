@@ -37,6 +37,11 @@ By the end of Sprint 1, the team can upload borrower data files, receive determi
 - API contract: [docs/sprint-1/03-API-Contract-v1.md](sprint-1/03-API-Contract-v1.md)
 - Database schema draft: [docs/sprint-1/04-Database-Schema-Draft.md](sprint-1/04-Database-Schema-Draft.md)
 - Definition of Done: [docs/sprint-1/05-Definition-of-Done-and-Acceptance.md](sprint-1/05-Definition-of-Done-and-Acceptance.md)
+- QA and UAT closure checklist: [docs/sprint-1/06-Sprint-1-QA-UAT-Closure-Checklist.md](sprint-1/06-Sprint-1-QA-UAT-Closure-Checklist.md)
+- Defect and waiver report: [docs/sprint-1/evidence/defect-and-waiver-report.md](sprint-1/evidence/defect-and-waiver-report.md)
+- Sprint release notes: [docs/sprint-1/evidence/sprint-1-release-notes.md](sprint-1/evidence/sprint-1-release-notes.md)
+- Demo execution notes and assets: [docs/sprint-1/evidence/demo-execution-notes.md](sprint-1/evidence/demo-execution-notes.md)
+- Sprint 2 kickoff and UI plan: [docs/sprint-2/01-Sprint-2-Kickoff-and-UI-Plan.md](sprint-2/01-Sprint-2-Kickoff-and-UI-Plan.md)
 
 ## 7. Sprint Risks to Watch
 

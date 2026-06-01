@@ -68,6 +68,22 @@ Response 200:
   "recommendation": {
     "decision": "manual_review",
     "suggestedAmount": 1200,
+    "score": 540,
+    "riskCategory": "high",
+    "explanation": {
+      "baseScore": 700,
+      "components": [
+        {
+          "key": "data_quality",
+          "label": "Data quality errors",
+          "impact": -120,
+          "detail": "1 rows contain blocking validation errors."
+        }
+      ],
+      "policyNotes": [
+        "Policy rule: blocking validation errors force manual_review."
+      ]
+    },
     "reasons": [
       "Mandatory fields are missing or invalid, so manager review is required."
     ]
@@ -95,6 +111,22 @@ Response 200:
   "recommendation": {
     "decision": "manual_review",
     "suggestedAmount": 1200,
+    "score": 540,
+    "riskCategory": "high",
+    "explanation": {
+      "baseScore": 700,
+      "components": [
+        {
+          "key": "data_quality",
+          "label": "Data quality errors",
+          "impact": -120,
+          "detail": "1 rows contain blocking validation errors."
+        }
+      ],
+      "policyNotes": [
+        "Policy rule: blocking validation errors force manual_review."
+      ]
+    },
     "reasons": [
       "Mandatory fields are missing or invalid, so manager review is required."
     ]
@@ -180,3 +212,15 @@ POST /api/v1/uploads/{uploadId}/validate body can also be empty:
   ],
   "traceId": "request-trace-id"
 }
+
+## 7. Recommendation Scoring Semantics
+
+- score: integer in range 0-1000 (higher is better).
+- riskCategory mapping:
+  - 750-1000: low
+  - 620-749: medium
+  - 450-619: high
+  - 0-449: very_high
+- explanation.baseScore: baseline score before component impacts are applied.
+- explanation.components: ordered list of scoring contributors with signed impact values.
+- explanation.policyNotes: policy decisions that led to final recommendation action.

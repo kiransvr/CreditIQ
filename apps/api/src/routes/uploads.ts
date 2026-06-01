@@ -140,9 +140,8 @@ uploadsRouter.post(
             details: []
           });
         }
-
         try {
-          rows = parseBorrowerRowsFromUpload(fileSource.fileName, fileSource.fileContent);
+          rows = await parseBorrowerRowsFromUpload(fileSource.fileName, fileSource.fileContent);
         } catch (error) {
           return res.status(400).json({
             code: "UPLOAD_PARSE_FAILED",
@@ -151,7 +150,6 @@ uploadsRouter.post(
           });
         }
       }
-
       const result = validateBorrowerRows(rows);
       const recommendation = generateRecommendation(rows, result);
       const persisted = await uploadRepository.validateUpload(uploadId, rows, result, recommendation);
@@ -162,9 +160,11 @@ uploadsRouter.post(
           details: []
         });
       }
-
       return res.status(200).json(persisted);
     } catch (error) {
+      // Log error for debugging
+      // eslint-disable-next-line no-console
+      console.error("/uploads/:uploadId/validate error:", error);
       return next(error);
     }
   }
@@ -180,6 +180,14 @@ uploadsRouter.get(
       return;
     }
 
+    // Parse pagination/filter/sort/search params
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.max(1, Math.min(100, parseInt(req.query.pageSize as string) || 20));
+    const filter = req.query.filter === "errors" || req.query.filter === "warnings" ? req.query.filter : "all";
+    const sort = req.query.sort === "row" || req.query.sort === "type" || req.query.sort === "code" ? req.query.sort : "row";
+    const direction = req.query.direction === "desc" ? "desc" : "asc";
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+
     try {
       const record = await uploadRepository.getUpload(uploadId);
       if (!record) {
@@ -189,9 +197,33 @@ uploadsRouter.get(
           details: []
         });
       }
-
-      return res.status(200).json(record);
+      const diagnosticsPage = await uploadRepository.getUploadDiagnosticsPage(uploadId, {
+        page,
+        pageSize,
+        filter,
+        sort,
+        direction,
+        search
+      });
+      if (!diagnosticsPage) {
+        return res.status(404).json({
+          code: "UPLOAD_NOT_FOUND",
+          message: "Upload was not found",
+          details: []
+        });
+      }
+      // Compose response: replace errors/warnings with diagnostics page
+      const {
+        errors, warnings, ...rest
+      } = record;
+      return res.status(200).json({
+        ...rest,
+        diagnostics: diagnosticsPage
+      });
     } catch (error) {
+      // Log error for debugging
+      // eslint-disable-next-line no-console
+      console.error("GET /uploads/:uploadId error:", error);
       return next(error);
     }
   }

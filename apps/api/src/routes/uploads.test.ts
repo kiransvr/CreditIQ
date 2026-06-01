@@ -51,6 +51,18 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(validateResponse.body.summary.warningRows, 1);
   assert.equal(validateResponse.body.recommendation.decision, "manual_review");
   assert.equal(typeof validateResponse.body.recommendation.suggestedAmount, "number");
+  assert.equal(typeof validateResponse.body.recommendation.score, "number");
+  assert.match(validateResponse.body.recommendation.riskCategory, /low|medium|high|very_high/);
+  const explanation = validateResponse.body.recommendation.explanation;
+  assert.equal(typeof explanation.baseScore, "number");
+  assert.equal(Array.isArray(explanation.components), true);
+  assert.equal(Array.isArray(explanation.policyNotes), true);
+  assert.equal(Array.isArray(explanation.weightedSignals), true);
+  assert.ok(explanation.weightedSignals.length > 0);
+  assert.equal(Array.isArray(explanation.rationaleCategories), true);
+  assert.ok(explanation.rationaleCategories.length > 0);
+  assert.equal(Array.isArray(explanation.scoreTrend), true);
+  assert.ok(explanation.scoreTrend.length > 0);
 
   const getResponse = await request(app)
     .get(`/api/v1/uploads/${uploadId}`)
@@ -60,6 +72,13 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(getResponse.body.uploadId, uploadId);
   assert.equal(getResponse.body.summary.totalRows, 2);
   assert.equal(getResponse.body.recommendation.decision, "manual_review");
+  assert.equal(typeof getResponse.body.recommendation.score, "number");
+  assert.match(getResponse.body.recommendation.riskCategory, /low|medium|high|very_high/);
+  const getExplanation = getResponse.body.recommendation.explanation;
+  assert.equal(typeof getExplanation.baseScore, "number");
+  assert.equal(Array.isArray(getExplanation.weightedSignals), true);
+  assert.equal(Array.isArray(getExplanation.rationaleCategories), true);
+  assert.equal(Array.isArray(getExplanation.scoreTrend), true);
 
   const invalidOverrideResponse = await request(app)
     .post(`/api/v1/uploads/${uploadId}/override`)
@@ -100,6 +119,10 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.match(contentType, /text\/csv/);
   assert.match(reportResponse.text, /summary,totalRows,2/);
   assert.match(reportResponse.text, /summary,recommendedDecision/);
+  assert.match(reportResponse.text, /summary,score,/);
+  assert.match(reportResponse.text, /summary,riskCategory,/);
+  assert.match(reportResponse.text, /summary,baseScore,/);
+  assert.match(reportResponse.text, /summary,topPolicyNote,/);
   assert.match(reportResponse.text, /issueType,row,field,code,message/);
 });
 
@@ -122,4 +145,29 @@ test("upload requires authentication", async () => {
 
   assert.equal(response.status, 401);
   assert.equal(response.body.code, "UNAUTHORIZED");
+});
+
+test("validate returns parse error for malformed xlsx upload", async () => {
+  const app = createApp();
+
+  const uploadResponse = await request(app)
+    .post("/api/v1/uploads")
+    .set(authHeaders())
+    .field("institutionId", "demo-bank")
+    .field("templateVersion", "v1")
+    .attach("file", Buffer.from("not a valid xlsx", "utf-8"), {
+      filename: "broken.xlsx",
+      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+  assert.equal(uploadResponse.status, 201);
+  const uploadId = uploadResponse.body.uploadId as string;
+
+  const validateResponse = await request(app)
+    .post(`/api/v1/uploads/${uploadId}/validate`)
+    .set(authHeaders("risk_analyst"))
+    .send({});
+
+  assert.equal(validateResponse.status, 400);
+  assert.equal(validateResponse.body.code, "UPLOAD_PARSE_FAILED");
 });

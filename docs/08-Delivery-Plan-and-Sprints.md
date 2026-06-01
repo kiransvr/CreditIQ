@@ -32,6 +32,13 @@ Sprint 5 (Week 11-12)
 - UAT and defect closure
 - Go-live preparation and training
 
+### Current Sprint Transition Status
+
+- Sprint 4 closeout completed.
+- Sprint 5 is now in progress.
+- Code freeze will start after Sprint 5 completion.
+- During freeze, only critical bug fixes, security fixes, and approved demo blockers are allowed.
+
 ## 3. Milestones
 
 - M1: Requirements and architecture signed off.

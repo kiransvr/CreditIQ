@@ -24,6 +24,11 @@ This repository currently contains the business and delivery documentation requi
 - [Sprint 1 API Contract v1](docs/sprint-1/03-API-Contract-v1.md)
 - [Sprint 1 Database Schema Draft](docs/sprint-1/04-Database-Schema-Draft.md)
 - [Sprint 1 Definition of Done](docs/sprint-1/05-Definition-of-Done-and-Acceptance.md)
+- [Sprint 1 QA and UAT Closure Checklist](docs/sprint-1/06-Sprint-1-QA-UAT-Closure-Checklist.md)
+- [Sprint 1 Evidence - Defect and Waiver Report](docs/sprint-1/evidence/defect-and-waiver-report.md)
+- [Sprint 1 Evidence - Release Notes](docs/sprint-1/evidence/sprint-1-release-notes.md)
+- [Sprint 1 Evidence - Demo Execution Notes](docs/sprint-1/evidence/demo-execution-notes.md)
+- [Sprint 2 Kickoff and UI Plan](docs/sprint-2/01-Sprint-2-Kickoff-and-UI-Plan.md)
 - [Development Quickstart](docs/14-Development-Quickstart.md)
 
 ## Current Product Scope (Phase 1)
