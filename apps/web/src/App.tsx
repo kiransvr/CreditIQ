@@ -161,6 +161,8 @@ export function App() {
   const [diagnosticQuery, setDiagnosticQuery] = useState("");
   const [diagnosticPage, setDiagnosticPage] = useState(1);
   const [diagnosticPageSize, setDiagnosticPageSize] = useState(10);
+  const [hasDetailsRequested, setHasDetailsRequested] = useState(false);
+  const [diagnosticFetchTick, setDiagnosticFetchTick] = useState(0);
   const [state, setState] = useState<ScreenState>("idle");
   const [message, setMessage] = useState("Ready. Upload a file or fetch an existing upload.");
   const [details, setDetails] = useState<UploadDetails | null>(null);
@@ -182,7 +184,7 @@ export function App() {
 
   // Fetch diagnostics page when any diagnostics-related state changes
   useEffect(() => {
-    if (!uploadId) return;
+    if (!uploadId || !hasDetailsRequested) return;
     async function fetchDiagnosticsPage() {
       setState("working");
       setMessage("Fetching diagnostics...");
@@ -212,7 +214,7 @@ export function App() {
     }
     fetchDiagnosticsPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadId, diagnosticPage, diagnosticPageSize, diagnosticFilter, diagnosticSort, diagnosticSortDirection, diagnosticQuery]);
+  }, [uploadId, hasDetailsRequested, diagnosticPage, diagnosticPageSize, diagnosticFilter, diagnosticSort, diagnosticSortDirection, diagnosticQuery, diagnosticFetchTick]);
 
   function onDiagnosticSortChange(nextSort: DiagnosticSort) {
     if (nextSort === diagnosticSort) {
@@ -290,10 +292,12 @@ export function App() {
 
       const body = (await response.json()) as { uploadId: string };
       setUploadId(body.uploadId);
+      setHasDetailsRequested(false);
       setDiagnosticFilter("all");
       setDiagnosticSort("row");
       setDiagnosticSortDirection("asc");
       setDiagnosticQuery("");
+      setDiagnosticPage(1);
       setState("success");
       setMessage(`Upload accepted with id ${body.uploadId}`);
       setDetails(null);
@@ -329,10 +333,12 @@ export function App() {
 
       const body = (await response.json()) as UploadDetails;
       setDetails(body);
+      setHasDetailsRequested(true);
       setDiagnosticFilter("all");
       setDiagnosticSort("row");
       setDiagnosticSortDirection("asc");
       setDiagnosticQuery("");
+      setDiagnosticPage(1);
       setState("success");
       setMessage(`Validation complete for ${body.uploadId}`);
     } catch (error) {
@@ -347,11 +353,13 @@ export function App() {
       setMessage("Enter an uploadId to fetch details.");
       return;
     }
+    setHasDetailsRequested(true);
     setDiagnosticPage(1);
     setDiagnosticFilter("all");
     setDiagnosticSort("row");
     setDiagnosticSortDirection("asc");
     setDiagnosticQuery("");
+    setDiagnosticFetchTick((current) => current + 1);
     // Diagnostics will be fetched by useEffect
   }
 
@@ -425,10 +433,12 @@ export function App() {
 
       const body = (await response.json()) as UploadDetails;
       setDetails(body);
+      setHasDetailsRequested(true);
       setDiagnosticFilter("all");
       setDiagnosticSort("row");
       setDiagnosticSortDirection("asc");
       setDiagnosticQuery("");
+      setDiagnosticPage(1);
       setState("success");
       setMessage(`Override saved for ${body.uploadId}`);
     } catch (error) {
@@ -503,7 +513,10 @@ export function App() {
               id="upload-id"
               type="text"
               value={uploadId}
-              onChange={(event) => setUploadId(event.target.value)}
+              onChange={(event) => {
+                setUploadId(event.target.value);
+                setHasDetailsRequested(false);
+              }}
               placeholder="Paste uploadId"
             />
 
@@ -1183,6 +1196,8 @@ export function App() {
           </article>
         </section>
 
+        <section className="shell-stage">{pageContent}</section>
+
         {!showAuditLog ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={2}>
@@ -1194,7 +1209,10 @@ export function App() {
                   id="shell-upload-id"
                   label="Upload ID"
                   value={uploadId}
-                  onChange={(event) => setUploadId(event.target.value)}
+                  onChange={(event) => {
+                    setUploadId(event.target.value);
+                    setHasDetailsRequested(false);
+                  }}
                   placeholder="Paste uploadId"
                   size="small"
                 />
@@ -1258,8 +1276,6 @@ export function App() {
             </Stack>
           </Paper>
         ) : null}
-
-        <section className="shell-stage">{pageContent}</section>
       </section>
     </AppShell>
   );
