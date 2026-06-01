@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useState as useReactState } from "react";
 import AuditLog from "./pages/AuditLog";
+import { AppShell } from "./shell/AppShell";
 
 type ScreenState = "idle" | "working" | "success" | "error";
 type UserRole = "loan_officer" | "credit_manager" | "risk_analyst" | "auditor" | "admin";
@@ -411,8 +412,12 @@ export function App() {
     }
   }
 
-  return (
-    <main className="page">
+  const useShell =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("shell") === "1";
+
+  const pageContent = (
+    <>
       <nav style={{ marginBottom: 16 }}>
         <button onClick={() => setShowAuditLog(false)} disabled={!showAuditLog}>
           Main
@@ -771,6 +776,22 @@ export function App() {
         <p className={statusClassName}>{message}</p>
       </section>
     )}
-  </main>
+  </>
   );
+
+  if (useShell) {
+    return (
+      <AppShell
+        environment="Development"
+        role={role}
+        onRoleChange={(nextRole) => setRole(nextRole)}
+        section={showAuditLog ? "audit" : "main"}
+        onSectionChange={(next) => setShowAuditLog(next === "audit")}
+      >
+        {pageContent}
+      </AppShell>
+    );
+  }
+
+  return <main className="page">{pageContent}</main>;
 }
