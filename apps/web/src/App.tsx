@@ -437,20 +437,20 @@ export function App() {
     }
   }
 
-  const useShell =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("shell") === "1";
+  const useShell = true;
 
   const pageContent = (
     <>
-      <nav style={{ marginBottom: 16 }}>
-        <button onClick={() => setShowAuditLog(false)} disabled={!showAuditLog}>
-          Main
-        </button>
-        <button onClick={() => setShowAuditLog(true)} disabled={showAuditLog}>
-          Audit Log
-        </button>
-      </nav>
+      {!useShell ? (
+        <nav style={{ marginBottom: 16 }}>
+          <button onClick={() => setShowAuditLog(false)} disabled={!showAuditLog}>
+            Main
+          </button>
+          <button onClick={() => setShowAuditLog(true)} disabled={showAuditLog}>
+            Audit Log
+          </button>
+        </nav>
+      ) : null}
       {showAuditLog ? (
         <AuditLog />
       ) : (
@@ -466,16 +466,18 @@ export function App() {
             </div>
           </header>
 
-          <div className="toolbar">
-            <label htmlFor="role">Role</label>
-            <select id="role" value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-              <option value="loan_officer">loan_officer</option>
-              <option value="credit_manager">credit_manager</option>
-              <option value="risk_analyst">risk_analyst</option>
-              <option value="auditor">auditor</option>
-              <option value="admin">admin</option>
-            </select>
-          </div>
+          {!useShell ? (
+            <div className="toolbar">
+              <label htmlFor="role">Role</label>
+              <select id="role" value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
+                <option value="loan_officer">loan_officer</option>
+                <option value="credit_manager">credit_manager</option>
+                <option value="risk_analyst">risk_analyst</option>
+                <option value="auditor">auditor</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+          ) : null}
 
           {role !== "auditor" ? (
             <form onSubmit={uploadFile} className="upload-form">
@@ -1149,120 +1151,116 @@ export function App() {
   const shellStatusSeverity =
     state === "error" ? "error" : state === "success" ? "success" : state === "working" ? "warning" : "info";
 
-  if (useShell) {
-    return (
-      <AppShell
-        environment="Development"
-        role={role}
-        onRoleChange={(nextRole) => setRole(nextRole)}
-        section={showAuditLog ? "audit" : "main"}
-        onSectionChange={(next) => setShowAuditLog(next === "audit")}
-      >
-        <section className="shell-dashboard" aria-label="CreditIQ Dashboard">
-          <header className="shell-header">
-            <p className="shell-kicker">International-ready operations console</p>
-            <h2>{showAuditLog ? "Audit & Compliance" : "Portfolio Intake Dashboard"}</h2>
-            <p>
-              Active role: <strong>{shellRoleLabel}</strong>
-            </p>
-          </header>
+  return (
+    <AppShell
+      environment="Development"
+      role={role}
+      onRoleChange={(nextRole) => setRole(nextRole)}
+      section={showAuditLog ? "audit" : "main"}
+      onSectionChange={(next) => setShowAuditLog(next === "audit")}
+    >
+      <section className="shell-dashboard" aria-label="CreditIQ Dashboard">
+        <header className="shell-header">
+          <p className="shell-kicker">International-ready operations console</p>
+          <h2>{showAuditLog ? "Audit & Compliance" : "Portfolio Intake Dashboard"}</h2>
+          <p>
+            Active role: <strong>{shellRoleLabel}</strong>
+          </p>
+        </header>
 
-          <section className="shell-kpi-grid" aria-label="Portfolio metrics">
-            <article className="shell-kpi-card">
-              <p className="shell-kpi-label">Rows Processed</p>
-              <p className="shell-kpi-value">{shellTotalRows}</p>
-            </article>
-            <article className="shell-kpi-card">
-              <p className="shell-kpi-label">Error Rows</p>
-              <p className="shell-kpi-value">{shellErrorRows}</p>
-            </article>
-            <article className="shell-kpi-card">
-              <p className="shell-kpi-label">Risk Band</p>
-              <p className="shell-kpi-value">{shellRisk}</p>
-            </article>
-          </section>
-
-          {!showAuditLog ? (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Stack spacing={2}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  Upload Operations
-                </Typography>
-                <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr 1fr" } }}>
-                  <TextField
-                    id="shell-upload-id"
-                    label="Upload ID"
-                    value={uploadId}
-                    onChange={(event) => setUploadId(event.target.value)}
-                    placeholder="Paste uploadId"
-                    size="small"
-                  />
-                  <Button variant="contained" onClick={validateUpload} disabled={state === "working"}>
-                    Validate Upload
-                  </Button>
-                  <Button variant="outlined" onClick={fetchUploadDetails} disabled={state === "working"}>
-                    Fetch Details
-                  </Button>
-                </Box>
-                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-                  <Button variant="outlined" onClick={downloadReport} disabled={state === "working"}>
-                    Download Report
-                  </Button>
-                  {(role === "credit_manager" || role === "admin") && (
-                    <Box sx={{ display: "grid", gap: 1, width: { xs: "100%", md: "min(520px, 100%)" } }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        Manual Override
-                      </Typography>
-                      <FormControl size="small" fullWidth>
-                        <InputLabel id="shell-override-decision-label">Decision</InputLabel>
-                        <Select
-                          labelId="shell-override-decision-label"
-                          id="shell-override-decision"
-                          label="Decision"
-                          value={overrideDecision}
-                          onChange={(event) => setOverrideDecision(event.target.value)}
-                        >
-                          <MenuItem value="proceed">proceed</MenuItem>
-                          <MenuItem value="lower_loan">lower_loan</MenuItem>
-                          <MenuItem value="manual_review">manual_review</MenuItem>
-                          <MenuItem value="reject">reject</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <TextField
-                        id="shell-override-reason"
-                        label="Reason"
-                        value={overrideReason}
-                        onChange={(event) => setOverrideReason(event.target.value)}
-                        placeholder="Mandatory override justification"
-                        multiline
-                        minRows={3}
-                        size="small"
-                        fullWidth
-                      />
-                      <Typography variant="caption" color={overrideReason.trim().length >= 10 ? "success.main" : "text.secondary"}>
-                        Minimum 10 characters required.
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={submitOverride}
-                        disabled={state === "working" || overrideReason.trim().length < 10}
-                      >
-                        Submit Override
-                      </Button>
-                    </Box>
-                  )}
-                </Box>
-                <Alert severity={shellStatusSeverity}>{message}</Alert>
-              </Stack>
-            </Paper>
-          ) : null}
-
-          <section className="shell-stage">{pageContent}</section>
+        <section className="shell-kpi-grid" aria-label="Portfolio metrics">
+          <article className="shell-kpi-card">
+            <p className="shell-kpi-label">Rows Processed</p>
+            <p className="shell-kpi-value">{shellTotalRows}</p>
+          </article>
+          <article className="shell-kpi-card">
+            <p className="shell-kpi-label">Error Rows</p>
+            <p className="shell-kpi-value">{shellErrorRows}</p>
+          </article>
+          <article className="shell-kpi-card">
+            <p className="shell-kpi-label">Risk Band</p>
+            <p className="shell-kpi-value">{shellRisk}</p>
+          </article>
         </section>
-      </AppShell>
-    );
-  }
 
-  return <main className="page">{pageContent}</main>;
+        {!showAuditLog ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={2}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Upload Operations
+              </Typography>
+              <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr 1fr" } }}>
+                <TextField
+                  id="shell-upload-id"
+                  label="Upload ID"
+                  value={uploadId}
+                  onChange={(event) => setUploadId(event.target.value)}
+                  placeholder="Paste uploadId"
+                  size="small"
+                />
+                <Button variant="contained" onClick={validateUpload} disabled={state === "working"}>
+                  Validate Upload
+                </Button>
+                <Button variant="outlined" onClick={fetchUploadDetails} disabled={state === "working"}>
+                  Fetch Details
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                <Button variant="outlined" onClick={downloadReport} disabled={state === "working"}>
+                  Download Report
+                </Button>
+                {(role === "credit_manager" || role === "admin") && (
+                  <Box sx={{ display: "grid", gap: 1, width: { xs: "100%", md: "min(520px, 100%)" } }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Manual Override
+                    </Typography>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel id="shell-override-decision-label">Decision</InputLabel>
+                      <Select
+                        labelId="shell-override-decision-label"
+                        id="shell-override-decision"
+                        label="Decision"
+                        value={overrideDecision}
+                        onChange={(event) => setOverrideDecision(event.target.value)}
+                      >
+                        <MenuItem value="proceed">proceed</MenuItem>
+                        <MenuItem value="lower_loan">lower_loan</MenuItem>
+                        <MenuItem value="manual_review">manual_review</MenuItem>
+                        <MenuItem value="reject">reject</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      id="shell-override-reason"
+                      label="Reason"
+                      value={overrideReason}
+                      onChange={(event) => setOverrideReason(event.target.value)}
+                      placeholder="Mandatory override justification"
+                      multiline
+                      minRows={3}
+                      size="small"
+                      fullWidth
+                    />
+                    <Typography variant="caption" color={overrideReason.trim().length >= 10 ? "success.main" : "text.secondary"}>
+                      Minimum 10 characters required.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={submitOverride}
+                      disabled={state === "working" || overrideReason.trim().length < 10}
+                    >
+                      Submit Override
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+              <Alert severity={shellStatusSeverity}>{message}</Alert>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        <section className="shell-stage">{pageContent}</section>
+      </section>
+    </AppShell>
+  );
 }

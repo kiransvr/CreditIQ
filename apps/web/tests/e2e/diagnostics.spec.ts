@@ -89,7 +89,7 @@ test.describe("Diagnostics filter and pagination", () => {
     await page.getByLabel("Upload ID").fill(uploadId);
     await page.getByRole("button", { name: "Fetch Details" }).click();
 
-    await expect(page.getByRole("heading", { name: "Row diagnostics" })).toBeVisible();
+    await expect(page.getByText("Row diagnostics")).toBeVisible();
     await expect(page.getByText("Showing 10 of 30 diagnostics")).toBeVisible();
 
     await page.getByRole("button", { name: /^Errors \(/ }).click();

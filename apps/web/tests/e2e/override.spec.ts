@@ -67,14 +67,16 @@ test.describe("Override workflow", () => {
     });
 
     await page.goto("/");
-    await page.getByLabel("Role").selectOption("credit_manager");
+    await page.getByRole("combobox", { name: "Role" }).click();
+    await page.getByRole("option", { name: "Credit Manager" }).click();
 
     await page.getByLabel("Upload ID").fill("upl_override_001");
     await page.getByRole("button", { name: "Fetch Details" }).click();
 
-    await expect(page.getByRole("heading", { name: "Manual Override" })).toBeVisible();
+    await expect(page.getByText("Manual Override")).toBeVisible();
 
-    await page.getByLabel("Decision").selectOption("manual_review");
+    await page.getByLabel("Decision").click();
+    await page.getByRole("option", { name: "manual_review" }).click();
     await page
       .getByLabel("Reason")
       .fill("Need additional KYC verification before disbursal");
