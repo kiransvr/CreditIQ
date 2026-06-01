@@ -779,6 +779,14 @@ export function App() {
   </>
   );
 
+  const shellRoleLabel = role
+    .split("_")
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
+  const shellTotalRows = details?.summary.totalRows ?? 0;
+  const shellErrorRows = details?.summary.errorRows ?? 0;
+  const shellRisk = details ? toRiskLabel(details.recommendation.riskCategory) : "Pending";
+
   if (useShell) {
     return (
       <AppShell
@@ -788,7 +796,32 @@ export function App() {
         section={showAuditLog ? "audit" : "main"}
         onSectionChange={(next) => setShowAuditLog(next === "audit")}
       >
-        {pageContent}
+        <section className="shell-dashboard" aria-label="CreditIQ Dashboard">
+          <header className="shell-header">
+            <p className="shell-kicker">International-ready operations console</p>
+            <h2>{showAuditLog ? "Audit & Compliance" : "Portfolio Intake Dashboard"}</h2>
+            <p>
+              Active role: <strong>{shellRoleLabel}</strong>
+            </p>
+          </header>
+
+          <section className="shell-kpi-grid" aria-label="Portfolio metrics">
+            <article className="shell-kpi-card">
+              <p className="shell-kpi-label">Rows Processed</p>
+              <p className="shell-kpi-value">{shellTotalRows}</p>
+            </article>
+            <article className="shell-kpi-card">
+              <p className="shell-kpi-label">Error Rows</p>
+              <p className="shell-kpi-value">{shellErrorRows}</p>
+            </article>
+            <article className="shell-kpi-card">
+              <p className="shell-kpi-label">Risk Band</p>
+              <p className="shell-kpi-value">{shellRisk}</p>
+            </article>
+          </section>
+
+          <section className="shell-stage">{pageContent}</section>
+        </section>
       </AppShell>
     );
   }

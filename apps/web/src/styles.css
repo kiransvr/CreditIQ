@@ -519,6 +519,94 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.shell-dashboard {
+  display: grid;
+  gap: 14px;
+  max-width: 1080px;
+}
+
+.shell-header {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 78, 121, 0.15);
+  background: linear-gradient(120deg, rgba(31, 78, 121, 0.1), rgba(46, 125, 50, 0.08));
+}
+
+.shell-kicker {
+  margin: 0 0 5px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #1f4e79;
+  font-weight: 700;
+}
+
+.shell-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.shell-header p {
+  margin: 6px 0 0;
+}
+
+.shell-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.shell-kpi-card {
+  border-radius: 14px;
+  border: 1px solid rgba(31, 78, 121, 0.18);
+  background: #ffffff;
+  padding: 12px;
+  box-shadow: 0 6px 18px rgba(12, 35, 58, 0.08);
+}
+
+.shell-kpi-label {
+  margin: 0;
+  color: #406079;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shell-kpi-value {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1f4e79;
+}
+
+.shell-stage {
+  border-radius: 14px;
+  border: 1px solid rgba(31, 78, 121, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+}
+
+.shell-stage .card {
+  width: min(900px, 100%);
+  margin: 0;
+  box-shadow: 0 14px 34px rgba(31, 47, 67, 0.12);
+}
+
+@media (max-width: 768px) {
+  .shell-dashboard {
+    gap: 10px;
+  }
+
+  .shell-header {
+    padding: 12px;
+  }
+
+  .shell-stage {
+    padding: 6px;
+  }
+}
+
 .diagnostics-table th,
 .diagnostics-table td {
   text-align: left;
