@@ -93,6 +93,42 @@ interface UploadDetails {
   } | null;
 }
 
+function normalizeUploadDetails(payload: UploadDetails): UploadDetails {
+  const diagnostics = payload.diagnostics ?? {
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 10,
+    totalPages: 1
+  };
+
+  const normalizedItems = (diagnostics.items ?? []).map((item) => {
+    if (item.type === "error" || item.type === "warning") {
+      return item;
+    }
+
+    // Backward-compatible fallback for payloads missing issue type.
+    const warningCodes = new Set(["NEGATIVE_NET_CASHFLOW", "HIGH_REQUEST_TO_INFLOW_RATIO"]);
+    const inferredType = warningCodes.has(item.code) ? "warning" : "error";
+    return {
+      ...item,
+      type: inferredType
+    } as DiagnosticItem;
+  });
+
+  return {
+    ...payload,
+    diagnostics: {
+      ...diagnostics,
+      items: normalizedItems,
+      total: diagnostics.total ?? normalizedItems.length,
+      page: diagnostics.page ?? 1,
+      pageSize: diagnostics.pageSize ?? 10,
+      totalPages: diagnostics.totalPages ?? 1
+    }
+  };
+}
+
 type RiskCategory = "low" | "medium" | "high" | "very_high";
 
 function toRiskLabel(riskCategory: string): string {
@@ -203,8 +239,8 @@ export function App() {
         if (!response.ok) {
           throw new Error(await parseError(response));
         }
-        const body = await response.json();
-        setDetails(body);
+        const body = (await response.json()) as UploadDetails;
+        setDetails(normalizeUploadDetails(body));
         setState("success");
         setMessage(`Loaded details for ${body.uploadId}`);
       } catch (error) {
@@ -332,7 +368,7 @@ export function App() {
       }
 
       const body = (await response.json()) as UploadDetails;
-      setDetails(body);
+      setDetails(normalizeUploadDetails(body));
       setHasDetailsRequested(true);
       setDiagnosticFilter("all");
       setDiagnosticSort("row");
@@ -432,7 +468,7 @@ export function App() {
       }
 
       const body = (await response.json()) as UploadDetails;
-      setDetails(body);
+      setDetails(normalizeUploadDetails(body));
       setHasDetailsRequested(true);
       setDiagnosticFilter("all");
       setDiagnosticSort("row");
@@ -527,7 +563,7 @@ export function App() {
               <button type="button" onClick={fetchUploadDetails} disabled={state === "working"}>
                 Fetch Details
               </button>
-              <button type="button" onClick={downloadReport} disabled={state === "working"}>
+              <button type="button" onClick={downloadReport} disabled={state === "working" || !uploadId.trim()}>
                 Download Report
               </button>
             </div>
@@ -1224,7 +1260,13 @@ export function App() {
                 </Button>
               </Box>
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-                <Button variant="outlined" onClick={downloadReport} disabled={state === "working"}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={downloadReport}
+                  disabled={state === "working" || !uploadId.trim()}
+                  sx={{ alignSelf: "center" }}
+                >
                   Download Report
                 </Button>
                 {(role === "credit_manager" || role === "admin") && (
