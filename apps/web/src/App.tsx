@@ -26,7 +26,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AuditLog from "./pages/AuditLog";
-import { AppShell } from "./shell/AppShell";
+import { AppShell, type ShellLanguage } from "./shell/AppShell";
 
 type ScreenState = "idle" | "working" | "success" | "error";
 type UserRole = "loan_officer" | "credit_manager" | "risk_analyst" | "auditor" | "admin";
@@ -37,6 +37,8 @@ type DiagnosticSortDirection = "asc" | "desc";
 interface DiagnosticItem {
   type: "error" | "warning";
   row: number;
+  customerId?: string;
+  customerName?: string;
   field: string;
   code: string;
   message: string;
@@ -112,7 +114,9 @@ function normalizeUploadDetails(payload: UploadDetails): UploadDetails {
     const inferredType = warningCodes.has(item.code) ? "warning" : "error";
     return {
       ...item,
-      type: inferredType
+      type: inferredType,
+      customerId: item.customerId ?? `ROW-${item.row}`,
+      customerName: item.customerName ?? item.customerId ?? `ROW-${item.row}`
     } as DiagnosticItem;
   });
 
@@ -184,8 +188,113 @@ function formatImpact(impact: number): string {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
+const APP_I18N: Record<ShellLanguage, {
+  shellKicker: string;
+  dashboardTitle: string;
+  auditTitle: string;
+  activeRole: string;
+  uploadOps: string;
+  uploadId: string;
+  uploadIdPlaceholder: string;
+  validateUpload: string;
+  fetchDetails: string;
+  downloadReport: string;
+  manualOverride: string;
+  decision: string;
+  reason: string;
+  reasonPlaceholder: string;
+  minChars: string;
+}> = {
+  en: {
+    shellKicker: "International-ready operations console",
+    dashboardTitle: "Portfolio Intake Dashboard",
+    auditTitle: "Audit & Compliance",
+    activeRole: "Active role",
+    uploadOps: "Upload Operations",
+    uploadId: "Upload ID",
+    uploadIdPlaceholder: "Paste uploadId",
+    validateUpload: "Validate Upload",
+    fetchDetails: "Fetch Details",
+    downloadReport: "Download Report",
+    manualOverride: "Manual Override",
+    decision: "Decision",
+    reason: "Reason",
+    reasonPlaceholder: "Mandatory override justification",
+    minChars: "Minimum 10 characters required."
+  },
+  "en-IN": {
+    shellKicker: "International-ready operations console",
+    dashboardTitle: "Portfolio Intake Dashboard",
+    auditTitle: "Audit & Compliance",
+    activeRole: "Active role",
+    uploadOps: "Upload Operations",
+    uploadId: "Upload ID",
+    uploadIdPlaceholder: "Paste uploadId",
+    validateUpload: "Validate Upload",
+    fetchDetails: "Fetch Details",
+    downloadReport: "Download Report",
+    manualOverride: "Manual Override",
+    decision: "Decision",
+    reason: "Reason",
+    reasonPlaceholder: "Mandatory override justification",
+    minChars: "Minimum 10 characters required."
+  },
+  es: {
+    shellKicker: "Consola operativa lista para entornos internacionales",
+    dashboardTitle: "Panel de cartera",
+    auditTitle: "Auditoria y cumplimiento",
+    activeRole: "Rol activo",
+    uploadOps: "Operaciones de carga",
+    uploadId: "ID de carga",
+    uploadIdPlaceholder: "Pegar ID de carga",
+    validateUpload: "Validar carga",
+    fetchDetails: "Obtener detalles",
+    downloadReport: "Descargar informe",
+    manualOverride: "Anulacion manual",
+    decision: "Decision",
+    reason: "Motivo",
+    reasonPlaceholder: "Justificacion obligatoria de anulacion",
+    minChars: "Se requieren al menos 10 caracteres."
+  },
+  ar: {
+    shellKicker: "وحدة تشغيل جاهزة للاسواق الدولية",
+    dashboardTitle: "لوحة استقبال المحفظة",
+    auditTitle: "التدقيق والامتثال",
+    activeRole: "الدور النشط",
+    uploadOps: "عمليات الرفع",
+    uploadId: "معرف الرفع",
+    uploadIdPlaceholder: "الصق معرف الرفع",
+    validateUpload: "التحقق من الرفع",
+    fetchDetails: "جلب التفاصيل",
+    downloadReport: "تنزيل التقرير",
+    manualOverride: "تجاوز يدوي",
+    decision: "القرار",
+    reason: "السبب",
+    reasonPlaceholder: "سبب التجاوز مطلوب",
+    minChars: "الحد الادنى 10 احرف."
+  },
+  "am-ET": {
+    shellKicker: "ለአለምአቀፍ ገበያ ዝግጁ የስራ መቆጣጠሪያ",
+    dashboardTitle: "የፖርትፎሊዮ መግቢያ ዳሽቦርድ",
+    auditTitle: "ኦዲት እና ተገዢነት",
+    activeRole: "ንቁ ሚና",
+    uploadOps: "የፋይል ጭነት ስራዎች",
+    uploadId: "የጭነት መለያ",
+    uploadIdPlaceholder: "የጭነት መለያ አስገባ",
+    validateUpload: "ጭነቱን አረጋግጥ",
+    fetchDetails: "ዝርዝር አምጣ",
+    downloadReport: "ሪፖርት አውርድ",
+    manualOverride: "በእጅ ማሻሻያ",
+    decision: "ውሳኔ",
+    reason: "ምክንያት",
+    reasonPlaceholder: "አስፈላጊ የማሻሻያ ምክንያት",
+    minChars: "ቢያንስ 10 ቁምፊዎች ያስፈልጋሉ።"
+  }
+};
+
 export function App() {
   const [showAuditLog, setShowAuditLog] = useReactState(false);
+  const [language, setLanguage] = useState<ShellLanguage>("en");
   const [file, setFile] = useState<File | null>(null);
   const [role, setRole] = useState<UserRole>("loan_officer");
   const [uploadId, setUploadId] = useState("");
@@ -911,7 +1020,7 @@ export function App() {
                         label="Search diagnostics"
                         value={diagnosticQuery}
                         onChange={(event) => setDiagnosticQuery(event.target.value)}
-                        placeholder="Search by field, code, or message"
+                        placeholder="Search by customer, field, code, or message"
                       />
 
                       <FormControl size="small">
@@ -925,7 +1034,7 @@ export function App() {
                             setDiagnosticSortDirection("asc");
                           }}
                         >
-                          <MenuItem value="row">row</MenuItem>
+                          <MenuItem value="row">customerId</MenuItem>
                           <MenuItem value="type">type</MenuItem>
                           <MenuItem value="code">code</MenuItem>
                         </Select>
@@ -966,9 +1075,10 @@ export function App() {
                                 </TableCell>
                                 <TableCell>
                                   <Button size="small" onClick={() => onDiagnosticSortChange("row")}>
-                                    Row {diagnosticSort === "row" ? `(${diagnosticSortDirection})` : ""}
+                                    Customer ID {diagnosticSort === "row" ? `(${diagnosticSortDirection})` : ""}
                                   </Button>
                                 </TableCell>
+                                <TableCell>Name</TableCell>
                                 <TableCell>Field</TableCell>
                                 <TableCell>
                                   <Button size="small" onClick={() => onDiagnosticSortChange("code")}>
@@ -989,7 +1099,8 @@ export function App() {
                                       variant="outlined"
                                     />
                                   </TableCell>
-                                  <TableCell>{entry.row}</TableCell>
+                                  <TableCell>{entry.customerId ?? `ROW-${entry.row}`}</TableCell>
+                                  <TableCell>{entry.customerName ?? entry.customerId ?? `ROW-${entry.row}`}</TableCell>
                                   <TableCell>{entry.field}</TableCell>
                                   <TableCell>{entry.code}</TableCell>
                                   <TableCell>{entry.message}</TableCell>
@@ -1076,7 +1187,7 @@ export function App() {
                       type="text"
                       value={diagnosticQuery}
                       onChange={(event) => setDiagnosticQuery(event.target.value)}
-                      placeholder="Search by field, code, or message"
+                      placeholder="Search by customer, field, code, or message"
                     />
                     <label htmlFor="diagnostic-sort">Diagnostic sort</label>
                     <select
@@ -1087,7 +1198,7 @@ export function App() {
                         setDiagnosticSortDirection("asc");
                       }}
                     >
-                      <option value="row">row</option>
+                      <option value="row">customerId</option>
                       <option value="type">type</option>
                       <option value="code">code</option>
                     </select>
@@ -1118,9 +1229,10 @@ export function App() {
                             </th>
                             <th scope="col" aria-sort={diagnosticSort === "row" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
                               <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("row")}>
-                                Row
+                                Customer ID
                               </button>
                             </th>
+                            <th scope="col">Name</th>
                             <th scope="col">Field</th>
                             <th scope="col" aria-sort={diagnosticSort === "code" ? (diagnosticSortDirection === "asc" ? "ascending" : "descending") : "none"}>
                               <button type="button" className="sort-toggle" onClick={() => onDiagnosticSortChange("code")}>
@@ -1134,7 +1246,8 @@ export function App() {
                           {details.diagnostics.items.map((entry) => (
                             <tr key={`${entry.type}-${entry.row}-${entry.field}-${entry.code}-${entry.message}`}>
                               <td>{entry.type}</td>
-                              <td>{entry.row}</td>
+                              <td>{entry.customerId ?? `ROW-${entry.row}`}</td>
+                              <td>{entry.customerName ?? entry.customerId ?? `ROW-${entry.row}`}</td>
                               <td>{entry.field}</td>
                               <td>{entry.code}</td>
                               <td>{entry.message}</td>
@@ -1199,21 +1312,24 @@ export function App() {
   const shellRisk = details ? toRiskLabel(details.recommendation.riskCategory) : "Pending";
   const shellStatusSeverity =
     state === "error" ? "error" : state === "success" ? "success" : state === "working" ? "warning" : "info";
+  const i18n = APP_I18N[language] ?? APP_I18N.en;
 
   return (
     <AppShell
       environment="Development"
       role={role}
       onRoleChange={(nextRole) => setRole(nextRole)}
+      language={language}
+      onLanguageChange={setLanguage}
       section={showAuditLog ? "audit" : "main"}
       onSectionChange={(next) => setShowAuditLog(next === "audit")}
     >
       <section className="shell-dashboard" aria-label="CreditIQ Dashboard">
         <header className="shell-header">
-          <p className="shell-kicker">International-ready operations console</p>
-          <h2>{showAuditLog ? "Audit & Compliance" : "Portfolio Intake Dashboard"}</h2>
+          <p className="shell-kicker">{i18n.shellKicker}</p>
+          <h2>{showAuditLog ? i18n.auditTitle : i18n.dashboardTitle}</h2>
           <p>
-            Active role: <strong>{shellRoleLabel}</strong>
+            {i18n.activeRole}: <strong>{shellRoleLabel}</strong>
           </p>
         </header>
 
@@ -1238,25 +1354,25 @@ export function App() {
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack spacing={2}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Upload Operations
+                {i18n.uploadOps}
               </Typography>
               <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr 1fr" } }}>
                 <TextField
                   id="shell-upload-id"
-                  label="Upload ID"
+                  label={i18n.uploadId}
                   value={uploadId}
                   onChange={(event) => {
                     setUploadId(event.target.value);
                     setHasDetailsRequested(false);
                   }}
-                  placeholder="Paste uploadId"
+                  placeholder={i18n.uploadIdPlaceholder}
                   size="small"
                 />
                 <Button variant="contained" onClick={validateUpload} disabled={state === "working"}>
-                  Validate Upload
+                  {i18n.validateUpload}
                 </Button>
                 <Button variant="outlined" onClick={fetchUploadDetails} disabled={state === "working"}>
-                  Fetch Details
+                  {i18n.fetchDetails}
                 </Button>
               </Box>
               <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
@@ -1267,19 +1383,19 @@ export function App() {
                   disabled={state === "working" || !uploadId.trim()}
                   sx={{ alignSelf: "center" }}
                 >
-                  Download Report
+                  {i18n.downloadReport}
                 </Button>
                 {(role === "credit_manager" || role === "admin") && (
                   <Box sx={{ display: "grid", gap: 1, width: { xs: "100%", md: "min(520px, 100%)" } }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      Manual Override
+                      {i18n.manualOverride}
                     </Typography>
                     <FormControl size="small" fullWidth>
-                      <InputLabel id="shell-override-decision-label">Decision</InputLabel>
+                      <InputLabel id="shell-override-decision-label">{i18n.decision}</InputLabel>
                       <Select
                         labelId="shell-override-decision-label"
                         id="shell-override-decision"
-                        label="Decision"
+                        label={i18n.decision}
                         value={overrideDecision}
                         onChange={(event) => setOverrideDecision(event.target.value)}
                       >
@@ -1291,17 +1407,17 @@ export function App() {
                     </FormControl>
                     <TextField
                       id="shell-override-reason"
-                      label="Reason"
+                      label={i18n.reason}
                       value={overrideReason}
                       onChange={(event) => setOverrideReason(event.target.value)}
-                      placeholder="Mandatory override justification"
+                      placeholder={i18n.reasonPlaceholder}
                       multiline
                       minRows={3}
                       size="small"
                       fullWidth
                     />
                     <Typography variant="caption" color={overrideReason.trim().length >= 10 ? "success.main" : "text.secondary"}>
-                      Minimum 10 characters required.
+                      {i18n.minChars}
                     </Typography>
                     <Button
                       variant="contained"

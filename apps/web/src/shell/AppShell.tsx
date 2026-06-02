@@ -42,11 +42,94 @@ const ROLE_LABELS: Record<ShellRole, string> = {
 };
 
 export type ShellSection = "main" | "audit";
+export type ShellLanguage = "en" | "en-IN" | "es" | "ar" | "am-ET";
+
+const SHELL_I18N: Record<ShellLanguage, {
+  role: string;
+  language: string;
+  account: string;
+  dashboard: string;
+  uploads: string;
+  reports: string;
+  auditLog: string;
+  settings: string;
+  signedInAs: string;
+  profile: string;
+  signOut: string;
+}> = {
+  en: {
+    role: "Role",
+    language: "Language",
+    account: "Account",
+    dashboard: "Dashboard",
+    uploads: "Uploads",
+    reports: "Reports",
+    auditLog: "Audit Log",
+    settings: "Settings",
+    signedInAs: "Signed in as demo-user",
+    profile: "Profile",
+    signOut: "Sign out"
+  },
+  "en-IN": {
+    role: "Role",
+    language: "Language",
+    account: "Account",
+    dashboard: "Dashboard",
+    uploads: "Uploads",
+    reports: "Reports",
+    auditLog: "Audit Log",
+    settings: "Settings",
+    signedInAs: "Signed in as demo-user",
+    profile: "Profile",
+    signOut: "Sign out"
+  },
+  es: {
+    role: "Rol",
+    language: "Idioma",
+    account: "Cuenta",
+    dashboard: "Panel",
+    uploads: "Cargas",
+    reports: "Informes",
+    auditLog: "Registro de auditoria",
+    settings: "Configuracion",
+    signedInAs: "Sesion iniciada como demo-user",
+    profile: "Perfil",
+    signOut: "Cerrar sesion"
+  },
+  ar: {
+    role: "الدور",
+    language: "اللغة",
+    account: "الحساب",
+    dashboard: "لوحة التحكم",
+    uploads: "التحميلات",
+    reports: "التقارير",
+    auditLog: "سجل التدقيق",
+    settings: "الإعدادات",
+    signedInAs: "تسجيل الدخول كـ demo-user",
+    profile: "الملف الشخصي",
+    signOut: "تسجيل الخروج"
+  },
+  "am-ET": {
+    role: "ሚና",
+    language: "ቋንቋ",
+    account: "መለያ",
+    dashboard: "ዳሽቦርድ",
+    uploads: "ጭነቶች",
+    reports: "ሪፖርቶች",
+    auditLog: "የኦዲት ማስታወሻ",
+    settings: "ቅንብሮች",
+    signedInAs: "እንደ demo-user ገብተዋል",
+    profile: "መገለጫ",
+    signOut: "ውጣ"
+  }
+};
 
 interface AppShellProps {
   environment: "Development" | "UAT" | "Production";
   role: ShellRole;
   onRoleChange: (role: ShellRole) => void;
+  language: ShellLanguage;
+  onLanguageChange: (language: ShellLanguage) => void;
   section: ShellSection;
   onSectionChange: (section: ShellSection) => void;
   children: ReactNode;
@@ -58,12 +141,14 @@ export function AppShell({
   environment,
   role,
   onRoleChange,
+  language,
+  onLanguageChange,
   section,
   onSectionChange,
   children
 }: AppShellProps) {
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
-  const [language, setLanguage] = useState<"en" | "en-IN" | "es" | "ar">("en");
+  const t = SHELL_I18N[language] ?? SHELL_I18N.en;
 
   const envColor =
     environment === "Production"
@@ -93,10 +178,10 @@ export function AppShell({
           <Box sx={{ flexGrow: 1 }} />
 
           <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="shell-role-label">Role</InputLabel>
+            <InputLabel id="shell-role-label">{t.role}</InputLabel>
             <Select
               labelId="shell-role-label"
-              label="Role"
+              label={t.role}
               value={role}
               onChange={(event) => onRoleChange(event.target.value as ShellRole)}
               inputProps={{ "aria-label": "Active role" }}
@@ -109,13 +194,11 @@ export function AppShell({
             </Select>
           </FormControl>
 
-          <Tooltip title="Language">
+          <Tooltip title={t.language}>
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <Select
                 value={language}
-                onChange={(event) =>
-                  setLanguage(event.target.value as "en" | "en-IN" | "es" | "ar")
-                }
+                onChange={(event) => onLanguageChange(event.target.value as ShellLanguage)}
                 startAdornment={<LanguageIcon fontSize="small" sx={{ mr: 1 }} />}
                 inputProps={{ "aria-label": "Language" }}
               >
@@ -123,11 +206,12 @@ export function AppShell({
                 <MenuItem value="en-IN">English (India)</MenuItem>
                 <MenuItem value="es">Español</MenuItem>
                 <MenuItem value="ar">العربية</MenuItem>
+                <MenuItem value="am-ET">አማርኛ (ኢትዮጵያ)</MenuItem>
               </Select>
             </FormControl>
           </Tooltip>
 
-          <Tooltip title="Account">
+          <Tooltip title={t.account}>
             <IconButton
               aria-label="Account menu"
               onClick={(event) => setUserMenuAnchor(event.currentTarget)}
@@ -141,10 +225,10 @@ export function AppShell({
             open={Boolean(userMenuAnchor)}
             onClose={() => setUserMenuAnchor(null)}
           >
-            <MenuItem disabled>Signed in as demo-user</MenuItem>
+            <MenuItem disabled>{t.signedInAs}</MenuItem>
             <Divider />
-            <MenuItem onClick={() => setUserMenuAnchor(null)}>Profile</MenuItem>
-            <MenuItem onClick={() => setUserMenuAnchor(null)}>Sign out</MenuItem>
+            <MenuItem onClick={() => setUserMenuAnchor(null)}>{t.profile}</MenuItem>
+            <MenuItem onClick={() => setUserMenuAnchor(null)}>{t.signOut}</MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
@@ -171,7 +255,7 @@ export function AppShell({
               <ListItemIcon>
                 <DashboardIcon />
               </ListItemIcon>
-              <ListItemText primary="Dashboard" />
+              <ListItemText primary={t.dashboard} />
             </ListItemButton>
             <ListItemButton
               selected={section === "main"}
@@ -180,13 +264,13 @@ export function AppShell({
               <ListItemIcon>
                 <UploadIcon />
               </ListItemIcon>
-              <ListItemText primary="Uploads" />
+              <ListItemText primary={t.uploads} />
             </ListItemButton>
             <ListItemButton disabled>
               <ListItemIcon>
                 <AssessmentIcon />
               </ListItemIcon>
-              <ListItemText primary="Reports" />
+              <ListItemText primary={t.reports} />
             </ListItemButton>
             <ListItemButton
               selected={section === "audit"}
@@ -195,14 +279,14 @@ export function AppShell({
               <ListItemIcon>
                 <HistoryIcon />
               </ListItemIcon>
-              <ListItemText primary="Audit Log" />
+              <ListItemText primary={t.auditLog} />
             </ListItemButton>
             <Divider sx={{ my: 1 }} />
             <ListItemButton disabled>
               <ListItemIcon>
                 <SettingsIcon />
               </ListItemIcon>
-              <ListItemText primary="Settings" />
+              <ListItemText primary={t.settings} />
             </ListItemButton>
           </List>
         </Box>
