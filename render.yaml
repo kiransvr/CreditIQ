@@ -6,7 +6,7 @@ services:
     env: node
     plan: free
     autoDeploy: true
-    buildCommand: npm install && npm run build --workspace @creditiq/api
+    buildCommand: npm install --include=dev && npm run build --workspace @creditiq/api
     startCommand: npm run start --workspace @creditiq/api
     envVars:
       - key: NODE_ENV
