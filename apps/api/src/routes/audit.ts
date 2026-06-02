@@ -4,6 +4,8 @@ import { queryAuditEvents, getAllAuditEvents } from "../services/auditStore.js";
 
 const router = Router();
 
+type AuditTimestampColumn = "created_at" | "event_at";
+
 function toQueryString(value: unknown): string | undefined {
   if (typeof value === "string") {
     return value;
@@ -27,6 +29,22 @@ function isMissingAuditSchemaError(err: unknown): boolean {
 
   // 42P01: undefined_table, 42703: undefined_column
   return code === "42P01" || code === "42703" || message.includes("audit_events");
+}
+
+async function resolveAuditTimestampColumn(pool: ReturnType<typeof getDbPool>): Promise<AuditTimestampColumn> {
+  const columnResult = await pool.query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_name = 'audit_events'
+       AND column_name IN ('created_at', 'event_at')`
+  );
+
+  const names = new Set(columnResult.rows.map((row) => row.column_name));
+  if (names.has("created_at")) {
+    return "created_at";
+  }
+
+  return "event_at";
 }
 
 // GET /audit-events: List audit events (basic, paginated)
@@ -64,6 +82,7 @@ router.get("/events", async (req, res) => {
 
   const pool = getDbPool();
   try {
+    const timestampColumn = await resolveAuditTimestampColumn(pool);
     const offset = (Number(page) - 1) * Number(pageSize);
     const filters: string[] = [];
     const values: Array<string | number | Date> = [Number(pageSize), offset];
@@ -78,11 +97,11 @@ router.get("/events", async (req, res) => {
     const metadataSearchValue = toQueryString(metadataSearch);
 
     if (startDateValue) {
-      filters.push(`created_at >= $${paramIdx++}`);
+      filters.push(`${timestampColumn} >= $${paramIdx++}`);
       values.push(new Date(startDateValue));
     }
     if (endDateValue) {
-      filters.push(`created_at <= $${paramIdx++}`);
+      filters.push(`${timestampColumn} <= $${paramIdx++}`);
       values.push(new Date(endDateValue));
     }
     if (actionTypeValue) {
@@ -108,10 +127,10 @@ router.get("/events", async (req, res) => {
     }
 
     const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
-    const query = `SELECT id, actor_user_id, action_type, object_type, object_id, metadata_json, created_at
+    const query = `SELECT id, actor_user_id, action_type, object_type, object_id, metadata_json, ${timestampColumn} AS created_at
       FROM audit_events
       ${where}
-      ORDER BY created_at DESC
+      ORDER BY ${timestampColumn} DESC
       LIMIT $1 OFFSET $2`;
     const result = await pool.query(query, values);
     res.json({
@@ -191,10 +210,11 @@ router.get("/events/export", async (req, res) => {
 
   const pool = getDbPool();
   try {
+    const timestampColumn = await resolveAuditTimestampColumn(pool);
     const result = await pool.query(
-      `SELECT id, actor_user_id, action_type, object_type, object_id, metadata_json, created_at
+      `SELECT id, actor_user_id, action_type, object_type, object_id, metadata_json, ${timestampColumn} AS created_at
        FROM audit_events
-       ORDER BY created_at DESC`
+       ORDER BY ${timestampColumn} DESC`
     );
     const csv = buildCsv(result.rows);
     res.setHeader("Content-Type", "text/csv");

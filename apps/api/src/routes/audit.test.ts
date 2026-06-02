@@ -11,6 +11,12 @@ vi.mock("../db/client", () => ({
   hasDatabaseConfig: () => true,
   getDbPool: () => ({
     query: async (sql: string, values?: any[]) => {
+      if (sql.includes("information_schema.columns") && sql.includes("audit_events")) {
+        return {
+          rows: [{ column_name: "created_at" }]
+        };
+      }
+
       if (sql.includes("FROM audit_events") && sql.includes("ORDER BY created_at DESC")) {
         // Return fake audit events
         return {
