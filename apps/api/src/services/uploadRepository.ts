@@ -98,8 +98,14 @@ interface DiagnosticsPageQuery {
   search?: string;
 }
 
+interface DiagnosticIssue extends ValidationIssue {
+  type: IssueType;
+  customerId?: string;
+  customerName?: string;
+}
+
 interface DiagnosticsPage {
-  items: ValidationIssue[];
+  items: DiagnosticIssue[];
   total: number;
   page: number;
   pageSize: number;
@@ -146,15 +152,77 @@ function getFirstRowOrThrow<T>(rows: T[], errorMessage: string): T {
   return first;
 }
 
+type UploadRowRecord = {
+  id: string;
+  status: UploadStatus;
+  file_name: string;
+  file_type: string;
+  template_version: string;
+  uploaded_at: string;
+  institution_code: string;
+  username: string;
+  override_decision: string | null;
+  override_reason: string | null;
+  overridden_at: string | null;
+  overridden_by_username: string | null;
+  recommended_decision: string | null;
+  recommended_amount: string | null;
+  recommendation_reasons: string[] | null;
+  recommended_score: number | null;
+  recommended_risk_category: string | null;
+  recommendation_explanation:
+    | {
+        baseScore?: number;
+        components?: Array<{
+          key?: string;
+          label?: string;
+          impact?: number;
+          detail?: string;
+        }>;
+        policyNotes?: string[];
+      }
+    | null;
+};
+
+type UploadFileRow = {
+  file_name: string;
+  file_type: string;
+  file_content: Buffer | null;
+};
+
 class InMemoryUploadRepository implements UploadRepository {
     async getUploadDiagnosticsPage(uploadId: string, query: DiagnosticsPageQuery): Promise<DiagnosticsPage | null> {
       const existing = this.uploads.get(uploadId);
       if (!existing) return null;
 
+      function toText(value: string | number | null | undefined): string | undefined {
+        if (value === null || value === undefined) {
+          return undefined;
+        }
+
+        return String(value);
+      }
+
       // Merge errors and warnings, add type
-      let diagnostics = [
-        ...existing.errors.map((d) => ({ ...d, type: "error" })),
-        ...existing.warnings.map((d) => ({ ...d, type: "warning" }))
+      let diagnostics: DiagnosticIssue[] = [
+        ...existing.errors.map((d): DiagnosticIssue => {
+          const row = existing.rows[d.row - 1] ?? {};
+          return {
+            ...d,
+            type: "error",
+            customerId: toText(row.customerId ?? row.customer_id),
+            customerName: toText(row.customerName ?? row.name ?? row.fullName ?? row.customerId ?? row.customer_id)
+          };
+        }),
+        ...existing.warnings.map((d): DiagnosticIssue => {
+          const row = existing.rows[d.row - 1] ?? {};
+          return {
+            ...d,
+            type: "warning",
+            customerId: toText(row.customerId ?? row.customer_id),
+            customerName: toText(row.customerName ?? row.name ?? row.fullName ?? row.customerId ?? row.customer_id)
+          };
+        })
       ];
 
       // Filter
@@ -187,11 +255,8 @@ class InMemoryUploadRepository implements UploadRepository {
       const start = (page - 1) * pageSize;
       const items = diagnostics.slice(start, start + pageSize);
 
-      // Remove .type before returning (to match ValidationIssue)
-      const resultItems = items.map(({ type, ...rest }) => rest);
-
       return {
-        items: resultItems,
+        items,
         total,
         page,
         pageSize,
@@ -420,30 +485,36 @@ function toIssueRows(issues: ValidationIssue[], issueType: IssueType) {
 class PostgresUploadRepository implements UploadRepository {
     async getUploadDiagnosticsPage(uploadId: string, query: DiagnosticsPageQuery): Promise<DiagnosticsPage | null> {
       // Build WHERE clause for filter
-      let where = 'upload_id = $1';
+      let where = "vi.upload_id = $1";
       const params: any[] = [uploadId];
       let idx = 2;
       if (query.filter === "errors") {
-        where += ` AND issue_type = 'error'`;
+        where += ` AND vi.issue_type = 'error'`;
       } else if (query.filter === "warnings") {
-        where += ` AND issue_type = 'warning'`;
+        where += ` AND vi.issue_type = 'warning'`;
       }
       if (query.search) {
         where += ` AND (` +
-          `LOWER(field_name) LIKE $${idx} OR LOWER(issue_code) LIKE $${idx} OR LOWER(issue_message) LIKE $${idx})`;
+          `LOWER(vi.field_name) LIKE $${idx} OR LOWER(vi.issue_code) LIKE $${idx} OR LOWER(vi.issue_message) LIKE $${idx} OR ` +
+          `LOWER(COALESCE(ur.raw_payload_json->>'customerId', ur.raw_payload_json->>'customer_id', '')) LIKE $${idx} OR ` +
+          `LOWER(COALESCE(ur.raw_payload_json->>'customerName', ur.raw_payload_json->>'name', ur.raw_payload_json->>'fullName', '')) LIKE $${idx})`;
         params.push(`%${query.search.toLowerCase()}%`);
         idx++;
       }
 
       // Sorting
-      let orderBy = 'row_number ASC';
-      if (query.sort === "row") orderBy = `row_number ${query.direction === "desc" ? "DESC" : "ASC"}`;
-      else if (query.sort === "type") orderBy = `issue_type ${query.direction === "desc" ? "DESC" : "ASC"}`;
-      else if (query.sort === "code") orderBy = `issue_code ${query.direction === "desc" ? "DESC" : "ASC"}`;
+      let orderBy = "vi.row_number ASC";
+      if (query.sort === "row") orderBy = `vi.row_number ${query.direction === "desc" ? "DESC" : "ASC"}`;
+      else if (query.sort === "type") orderBy = `vi.issue_type ${query.direction === "desc" ? "DESC" : "ASC"}`;
+      else if (query.sort === "code") orderBy = `vi.issue_code ${query.direction === "desc" ? "DESC" : "ASC"}`;
 
       // Count total
       const countResult = await this.pool.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM validation_issues WHERE ${where}`,
+        `SELECT COUNT(*) as count
+         FROM validation_issues vi
+         LEFT JOIN upload_rows ur
+           ON ur.upload_id = vi.upload_id AND ur.row_number = vi.row_number
+         WHERE ${where}`,
         params
       );
       const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
@@ -459,21 +530,33 @@ class PostgresUploadRepository implements UploadRepository {
         issue_code: string;
         issue_message: string;
         issue_type: IssueType;
+        customer_id: string | null;
+        customer_name: string | null;
       }>(
-        `SELECT row_number, field_name, issue_code, issue_message, issue_type
-         FROM validation_issues
+        `SELECT vi.row_number,
+                vi.field_name,
+                vi.issue_code,
+                vi.issue_message,
+                vi.issue_type,
+                COALESCE(ur.raw_payload_json->>'customerId', ur.raw_payload_json->>'customer_id') AS customer_id,
+                  COALESCE(ur.raw_payload_json->>'customerName', ur.raw_payload_json->>'name', ur.raw_payload_json->>'fullName', ur.raw_payload_json->>'customerId', ur.raw_payload_json->>'customer_id') AS customer_name
+         FROM validation_issues vi
+         LEFT JOIN upload_rows ur
+           ON ur.upload_id = vi.upload_id AND ur.row_number = vi.row_number
          WHERE ${where}
          ORDER BY ${orderBy}
          OFFSET $${idx} LIMIT $${idx + 1}`,
         [...params, offset, pageSize]
       );
 
-      // Remove .type (not needed, but keep ValidationIssue shape)
-      const items = issuesResult.rows.map((issue) => ({
+      const items = issuesResult.rows.map((issue): DiagnosticIssue => ({
+        type: issue.issue_type,
         row: issue.row_number,
         field: issue.field_name,
         code: issue.issue_code,
-        message: issue.issue_message
+        message: issue.issue_message,
+        customerId: issue.customer_id ?? undefined,
+        customerName: issue.customer_name ?? undefined
       }));
 
       return {
@@ -783,7 +866,7 @@ class PostgresUploadRepository implements UploadRepository {
       warningRows: Number.parseInt(summaryRow.warning_rows, 10)
     };
 
-    const upload = getFirstRowOrThrow(uploadResult.rows, "Upload record missing after query");
+    const upload = getFirstRowOrThrow(uploadResult.rows, "Upload record missing after query") as UploadRowRecord;
 
     return {
       uploadId: upload.id,
@@ -826,11 +909,7 @@ class PostgresUploadRepository implements UploadRepository {
   }
 
   async getUploadFileSource(uploadId: string): Promise<UploadFileSource | null> {
-    const result = await this.pool.query<{
-      file_name: string;
-      file_type: string;
-      file_content: Buffer | null;
-    }>(
+    const result = await this.pool.query<UploadFileRow>(
       `SELECT file_name, file_type, file_content
        FROM uploads
        WHERE id = $1`,
@@ -841,7 +920,7 @@ class PostgresUploadRepository implements UploadRepository {
       return null;
     }
 
-    const row = getFirstRowOrThrow(result.rows, "Upload file source missing after query");
+    const row = getFirstRowOrThrow(result.rows, "Upload file source missing after query") as UploadFileRow;
     if (!row.file_content) {
       throw new Error("Upload file content is missing in storage");
     }
