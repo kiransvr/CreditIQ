@@ -612,7 +612,7 @@ export function App() {
         <section className="card">
           <header className="hero">
             <p className="eyebrow">Credit Decision Support for Financial Institutions</p>
-            <h1>CreditIQ Lite</h1>
+            <h1>CreditIQ</h1>
             <p className="hero-copy">Role-aware upload, validation, scoring, and override workflow for branch and risk teams.</p>
             <div className="hero-chips" aria-label="context chips">
               <span className="chip">Bank and MFI operations</span>
@@ -1316,7 +1316,7 @@ export function App() {
 
   return (
     <AppShell
-      environment="Development"
+      environment="UAT"
       role={role}
       onRoleChange={(nextRole) => setRole(nextRole)}
       language={language}

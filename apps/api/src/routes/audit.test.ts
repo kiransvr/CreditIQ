@@ -8,6 +8,7 @@ import auditRouter from "../routes/audit.js";
 
 // Mock getDbPool to return a fake pool with query method
 vi.mock("../db/client", () => ({
+  hasDatabaseConfig: () => true,
   getDbPool: () => ({
     query: async (sql: string, values?: any[]) => {
       if (sql.includes("FROM audit_events") && sql.includes("ORDER BY created_at DESC")) {

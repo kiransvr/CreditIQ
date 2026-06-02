@@ -9,7 +9,7 @@ test.describe("CreditIQ web smoke", () => {
   test("renders landing page and upload controls", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "CreditIQ Lite" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "CreditIQ" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Role" })).toContainText("Loan Officer");
     await expect(page.getByLabel("Borrower data file")).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload File" })).toBeVisible();
@@ -40,6 +40,6 @@ test.describe("CreditIQ web smoke", () => {
     await expect(page.getByText("Time")).toBeVisible();
 
     await page.getByRole("button", { name: "Dashboard" }).click();
-    await expect(page.getByRole("heading", { name: "CreditIQ Lite" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "CreditIQ" })).toBeVisible();
   });
 });

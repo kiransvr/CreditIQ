@@ -61,6 +61,15 @@ async function parseJsonResponse<T>(response: Response, fallbackMessage: string)
   throw new Error(`${fallbackMessage} (received non-JSON response)`);
 }
 
+async function parseApiError(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const body = await parseJsonResponse<{ message?: string; error?: string; details?: string }>(response, fallbackMessage);
+    return body.message ?? body.error ?? body.details ?? `${fallbackMessage} (${response.status})`;
+  } catch {
+    return `${fallbackMessage} (${response.status})`;
+  }
+}
+
 function MetadataDetail({ action, meta }: { action: string; meta: any }) {
   if (!meta || typeof meta !== "object") return <span style={{ color: "#aaa" }}>—</span>;
 
@@ -153,7 +162,7 @@ export default function AuditLog() {
     const response = await fetch(`${apiBaseUrl}/api/v1/audit/events?${params.toString()}`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch audit events (${response.status})`);
+      throw new Error(await parseApiError(response, "Failed to fetch audit events"));
     }
 
     const data = await parseJsonResponse<{ items?: AuditEvent[] }>(response, "Failed to fetch audit events");

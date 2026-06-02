@@ -16,6 +16,19 @@ function toQueryString(value: unknown): string | undefined {
   return undefined;
 }
 
+function isMissingAuditSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== "object") {
+    return false;
+  }
+
+  const maybePgError = err as { code?: string; message?: string };
+  const code = maybePgError.code ?? "";
+  const message = (maybePgError.message ?? "").toLowerCase();
+
+  // 42P01: undefined_table, 42703: undefined_column
+  return code === "42P01" || code === "42703" || message.includes("audit_events");
+}
+
 // GET /audit-events: List audit events (basic, paginated)
 
 // Advanced filtering: objectType, objectId, metadataSearch
@@ -108,6 +121,23 @@ router.get("/events", async (req, res) => {
       total: result.rows.length // For real total, add COUNT(*) query
     });
   } catch (err: unknown) {
+    if (isMissingAuditSchemaError(err)) {
+      const fallback = queryAuditEvents({
+        page: Number(page),
+        pageSize: Number(pageSize),
+        startDate: toQueryString(startDate),
+        endDate: toQueryString(endDate),
+        actionType: toQueryString(actionType),
+        actorUserId: toQueryString(actorUserId),
+        objectType: toQueryString(objectType),
+        objectId: toQueryString(objectId),
+        metadataSearch: toQueryString(metadataSearch)
+      });
+
+      res.json(fallback);
+      return;
+    }
+
     res.status(500).json({
       error: "Failed to fetch audit events",
       details: err instanceof Error ? err.message : "Unknown error"
@@ -171,6 +201,15 @@ router.get("/events/export", async (req, res) => {
     res.setHeader("Content-Disposition", "attachment; filename=AuditEvents.csv");
     res.send(csv);
   } catch (err: unknown) {
+    if (isMissingAuditSchemaError(err)) {
+      const rows = getAllAuditEvents();
+      const csv = buildCsv(rows as unknown as Array<Record<string, unknown>>);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=AuditEvents.csv");
+      res.send(csv);
+      return;
+    }
+
     res.status(500).json({
       error: "Failed to export audit events",
       details: err instanceof Error ? err.message : "Unknown error"
