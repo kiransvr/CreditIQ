@@ -1,0 +1,17 @@
+version: 1
+
+services:
+  - type: web
+    name: creditiq-api
+    env: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install --include=dev && npm run build --workspace @creditiq/api
+    startCommand: npm run start --workspace @creditiq/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false

@@ -31,6 +31,36 @@ interface AuditEvent {
   created_at: string;
 }
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+
+async function parseJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const contentType = response.headers?.get?.("content-type") ?? "";
+
+  if (contentType && !contentType.toLowerCase().includes("application/json")) {
+    throw new Error(`${fallbackMessage} (received non-JSON response)`);
+  }
+
+  if (typeof response.text === "function") {
+    const rawBody = await response.text();
+
+    try {
+      return JSON.parse(rawBody) as T;
+    } catch {
+      throw new Error(`${fallbackMessage} (received non-JSON response)`);
+    }
+  }
+
+  if (typeof response.json === "function") {
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new Error(`${fallbackMessage} (received non-JSON response)`);
+    }
+  }
+
+  throw new Error(`${fallbackMessage} (received non-JSON response)`);
+}
+
 function MetadataDetail({ action, meta }: { action: string; meta: any }) {
   if (!meta || typeof meta !== "object") return <span style={{ color: "#aaa" }}>—</span>;
 
@@ -119,9 +149,21 @@ export default function AuditLog() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  async function fetchAuditEvents(params: URLSearchParams): Promise<void> {
+    const response = await fetch(`${apiBaseUrl}/api/v1/audit/events?${params.toString()}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audit events (${response.status})`);
+    }
+
+    const data = await parseJsonResponse<{ items?: AuditEvent[] }>(response, "Failed to fetch audit events");
+    setEvents(data.items ?? []);
+  }
+
   // Fetch audit events with filters
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams();
     params.append("page", "1");
     params.append("pageSize", "100");
@@ -132,17 +174,12 @@ export default function AuditLog() {
     if (metadataSearch) params.append("metadataSearch", metadataSearch);
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
-    fetch(`/api/v1/audit/events?${params.toString()}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch audit events");
-        return res.json();
-      })
-      .then((data) => {
-        setEvents(data.items || []);
+    fetchAuditEvents(params)
+      .then(() => {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Failed to fetch audit events");
         setLoading(false);
       });
   }, [actionFilter, userFilter, objectTypeFilter, objectIdFilter, metadataSearch, startDate, endDate]);
@@ -175,7 +212,7 @@ export default function AuditLog() {
   // Download CSV handler
   const handleDownloadCSV = async () => {
     try {
-      const res = await fetch("/api/v1/audit/events/export");
+      const res = await fetch(`${apiBaseUrl}/api/v1/audit/events/export`);
       if (!res.ok) throw new Error("Failed to download CSV");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

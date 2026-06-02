@@ -84,7 +84,7 @@ test.describe("Upload happy-path", () => {
     await page.getByRole("button", { name: "Validate Upload" }).click();
 
     await expect(page.getByRole("heading", { name: "Validation Summary" })).toBeVisible();
-    await expect(page.getByText("Total rows: 50")).toBeVisible();
+    await expect(page.getByText("Total: 50")).toBeVisible();
     await expect(page.getByText("Decision: Proceed")).toBeVisible();
     await expect(page.getByText("Risk: Low")).toBeVisible();
   });

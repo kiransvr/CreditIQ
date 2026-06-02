@@ -5,6 +5,11 @@ import type { BorrowerRow } from "./validation.js";
 const headerAliases: Record<string, string> = {
   customerid: "customerId",
   customer_id: "customerId",
+  customername: "customerName",
+  customer_name: "customerName",
+  fullname: "customerName",
+  full_name: "customerName",
+  name: "customerName",
   accountopeningdate: "accountOpeningDate",
   account_opening_date: "accountOpeningDate",
   monthlyinflow: "monthlyInflow",
@@ -39,8 +44,21 @@ function toCellValue(value: unknown): string | number | null {
     return null;
   }
 
-  if (typeof value === "string" || typeof value === "number") {
+  if (typeof value === "number") {
     return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    // Accept DD-MM-YYYY from demo files and normalize to YYYY-MM-DD.
+    const dmy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(trimmed);
+    if (dmy) {
+      const [, dd, mm, yyyy] = dmy;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return trimmed;
   }
 
   if (typeof value === "boolean") {
