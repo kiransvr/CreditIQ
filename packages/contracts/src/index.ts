@@ -25,6 +25,18 @@ export interface UploadRecommendation {
   score: number;
   riskCategory: "low" | "medium" | "high" | "very_high";
   reasons: string[];
+  customerScores: Array<{
+    row: number;
+    customerId: string;
+    customerName?: string;
+    score: number;
+    riskCategory: "low" | "medium" | "high" | "very_high";
+    confidence: number;
+    manualReviewRequired: boolean;
+    decision: "proceed" | "lower_loan" | "manual_review" | "reject";
+    suggestedAmount: number;
+    reasons: string[];
+  }>;
   explanation: {
     baseScore: number;
     components: Array<{

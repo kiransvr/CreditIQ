@@ -21,23 +21,31 @@ Mandatory baseline fields:
 - Customer ID
 - Branch ID
 - Account opening date
+- Current balance in account
 - Monthly inflow
 - Monthly outflow
+- Number of deposits in the last 12 to 24 months
+- Any defaults in the last 12 to 24 months
+- Existing liabilities: total amount outstanding
+- Existing liabilities: monthly payment obligations
 - Requested loan amount
 - Requested tenure
 
 Optional fields:
 - Deposit regularity metrics
 - Previous loan repayment details
-- Outstanding debt details
+- Additional outstanding debt details beyond mandatory liabilities fields
 
 ## 4. Processing Requirements
 
 - Validate schema and field types.
 - Normalize date and numeric fields.
 - Compute intermediate indicators.
-- Apply weighted scoring formula.
+- Apply weighted scoring formula across five areas: account stability, deposit regularity, balance behavior, repayment history, and cashflow/debt burden.
+- Ensure repayment-history logic does not penalize customers only because they have no prior loan history.
+- Compute confidence score from data quality/completeness, or force manual review when confidence is below policy threshold.
 - Generate explanations and category.
+- Constrain final score output to range 0 to 1000.
 - Persist record and emit report object.
 
 ## 5. API Requirements (Initial)

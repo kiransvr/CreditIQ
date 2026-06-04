@@ -20,9 +20,7 @@ import Divider from "@mui/material/Divider";
 
 import DashboardIcon from "@mui/icons-material/SpaceDashboard";
 import UploadIcon from "@mui/icons-material/CloudUpload";
-import AssessmentIcon from "@mui/icons-material/Assessment";
 import HistoryIcon from "@mui/icons-material/History";
-import SettingsIcon from "@mui/icons-material/Settings";
 import LanguageIcon from "@mui/icons-material/Language";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 
@@ -33,18 +31,50 @@ export type ShellRole =
   | "auditor"
   | "admin";
 
-const ROLE_LABELS: Record<ShellRole, string> = {
-  loan_officer: "Loan Officer",
-  credit_manager: "Credit Manager",
-  risk_analyst: "Risk Analyst",
-  auditor: "Auditor",
-  admin: "Administrator"
+export type ShellLanguage = "en" | "en-IN" | "es" | "ar" | "am-ET";
+
+const ROLE_LABELS_I18N: Record<ShellLanguage, Record<ShellRole, string>> = {
+  en: {
+    loan_officer: "Loan Officer",
+    credit_manager: "Credit Manager",
+    risk_analyst: "Risk Analyst",
+    auditor: "Auditor",
+    admin: "Administrator"
+  },
+  "en-IN": {
+    loan_officer: "Loan Officer",
+    credit_manager: "Credit Manager",
+    risk_analyst: "Risk Analyst",
+    auditor: "Auditor",
+    admin: "Administrator"
+  },
+  es: {
+    loan_officer: "Loan Officer",
+    credit_manager: "Credit Manager",
+    risk_analyst: "Risk Analyst",
+    auditor: "Auditor",
+    admin: "Administrator"
+  },
+  ar: {
+    loan_officer: "Loan Officer",
+    credit_manager: "Credit Manager",
+    risk_analyst: "Risk Analyst",
+    auditor: "Auditor",
+    admin: "Administrator"
+  },
+  "am-ET": {
+    loan_officer: "የብድር ባለሙያ",
+    credit_manager: "የክሬዲት አስተዳዳሪ",
+    risk_analyst: "የአደጋ ተንታኝ",
+    auditor: "ኦዲተር",
+    admin: "አስተዳዳሪ"
+  }
 };
 
 export type ShellSection = "main" | "audit";
-export type ShellLanguage = "en" | "en-IN" | "es" | "ar" | "am-ET";
 
 const SHELL_I18N: Record<ShellLanguage, {
+  appName: string;
   role: string;
   language: string;
   account: string;
@@ -58,6 +88,7 @@ const SHELL_I18N: Record<ShellLanguage, {
   signOut: string;
 }> = {
   en: {
+    appName: "CreditIQ",
     role: "Role",
     language: "Language",
     account: "Account",
@@ -71,6 +102,7 @@ const SHELL_I18N: Record<ShellLanguage, {
     signOut: "Sign out"
   },
   "en-IN": {
+    appName: "CreditIQ",
     role: "Role",
     language: "Language",
     account: "Account",
@@ -84,6 +116,7 @@ const SHELL_I18N: Record<ShellLanguage, {
     signOut: "Sign out"
   },
   es: {
+    appName: "CreditIQ",
     role: "Rol",
     language: "Idioma",
     account: "Cuenta",
@@ -97,6 +130,7 @@ const SHELL_I18N: Record<ShellLanguage, {
     signOut: "Cerrar sesion"
   },
   ar: {
+    appName: "CreditIQ",
     role: "الدور",
     language: "اللغة",
     account: "الحساب",
@@ -110,6 +144,7 @@ const SHELL_I18N: Record<ShellLanguage, {
     signOut: "تسجيل الخروج"
   },
   "am-ET": {
+    appName: "ክሬዲትIQ",
     role: "ሚና",
     language: "ቋንቋ",
     account: "መለያ",
@@ -149,6 +184,7 @@ export function AppShell({
 }: AppShellProps) {
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
   const t = SHELL_I18N[language] ?? SHELL_I18N.en;
+  const roleLabels = ROLE_LABELS_I18N[language] ?? ROLE_LABELS_I18N.en;
 
   const envColor =
     environment === "Production"
@@ -166,7 +202,7 @@ export function AppShell({
       >
         <Toolbar sx={{ gap: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
-            CreditIQ
+            {t.appName}
           </Typography>
           <Chip
             size="small"
@@ -186,9 +222,9 @@ export function AppShell({
               onChange={(event) => onRoleChange(event.target.value as ShellRole)}
               inputProps={{ "aria-label": "Active role" }}
             >
-              {(Object.keys(ROLE_LABELS) as ShellRole[]).map((key) => (
+              {(Object.keys(roleLabels) as ShellRole[]).map((key) => (
                 <MenuItem key={key} value={key}>
-                  {ROLE_LABELS[key]}
+                  {roleLabels[key]}
                 </MenuItem>
               ))}
             </Select>
@@ -266,12 +302,6 @@ export function AppShell({
               </ListItemIcon>
               <ListItemText primary={t.uploads} />
             </ListItemButton>
-            <ListItemButton disabled>
-              <ListItemIcon>
-                <AssessmentIcon />
-              </ListItemIcon>
-              <ListItemText primary={t.reports} />
-            </ListItemButton>
             <ListItemButton
               selected={section === "audit"}
               onClick={() => onSectionChange("audit")}
@@ -280,13 +310,6 @@ export function AppShell({
                 <HistoryIcon />
               </ListItemIcon>
               <ListItemText primary={t.auditLog} />
-            </ListItemButton>
-            <Divider sx={{ my: 1 }} />
-            <ListItemButton disabled>
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary={t.settings} />
             </ListItemButton>
           </List>
         </Box>

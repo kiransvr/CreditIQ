@@ -36,6 +36,20 @@ export interface RecommendationResult {
   riskCategory: RiskCategory;
   reasons: string[];
   explanation: RecommendationExplanation;
+  customerScores: CustomerScore[];
+}
+
+export interface CustomerScore {
+  row: number;
+  customerId: string;
+  customerName?: string;
+  score: number;
+  riskCategory: RiskCategory;
+  confidence: number;
+  manualReviewRequired: boolean;
+  decision: RecommendationDecision;
+  suggestedAmount: number;
+  reasons: string[];
 }
 
 function toNumber(value: string | number | null | undefined): number | null {
@@ -69,6 +83,31 @@ function roundAmount(value: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function getTextValue(row: BorrowerRow, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const raw = row[key];
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      return raw.trim();
+    }
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      return String(raw);
+    }
+  }
+
+  return undefined;
+}
+
+function getNumberValue(row: BorrowerRow, keys: string[]): number | null {
+  for (const key of keys) {
+    const parsed = toNumber(row[key]);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
 
 function toRiskCategory(score: number): RiskCategory {
@@ -183,7 +222,175 @@ function calculateScoreWithExplanation(
   };
 }
 
+function buildCustomerScores(rows: BorrowerRow[], validation: ValidationResult): CustomerScore[] {
+  const errorsByRow = new Map<number, number>();
+  const warningsByRow = new Map<number, number>();
+
+  for (const issue of validation.errors) {
+    errorsByRow.set(issue.row, (errorsByRow.get(issue.row) ?? 0) + 1);
+  }
+
+  for (const issue of validation.warnings) {
+    warningsByRow.set(issue.row, (warningsByRow.get(issue.row) ?? 0) + 1);
+  }
+
+  return rows.map((row, index) => {
+    const rowNumber = index + 1;
+    const rowErrors = errorsByRow.get(rowNumber) ?? 0;
+    const rowWarnings = warningsByRow.get(rowNumber) ?? 0;
+
+    const customerId = getTextValue(row, ["customerId", "customer_id"]) ?? `ROW-${rowNumber}`;
+    const customerName = getTextValue(row, ["customerName", "name", "fullName"]);
+
+    const monthlyInflow = getNumberValue(row, ["monthlyInflow", "monthly_inflow"]);
+    const monthlyOutflow = getNumberValue(row, ["monthlyOutflow", "monthly_outflow"]);
+    const requestedLoanAmount = getNumberValue(row, ["requestedLoanAmount", "requested_loan_amount"]);
+    const currentBalance = getNumberValue(row, ["currentBalance", "current_balance", "averageBalance", "accountBalance"]);
+    const depositCount = getNumberValue(row, [
+      "depositsLast12To24Months",
+      "deposits_12_24_months",
+      "numberOfDepositsLast12To24Months"
+    ]);
+    const defaultsCount = getNumberValue(row, [
+      "defaultsLast12To24Months",
+      "defaults_12_24_months",
+      "anyDefaultsLast12To24Months"
+    ]);
+    const liabilitiesOutstanding = getNumberValue(row, [
+      "existingLiabilitiesTotalOutstanding",
+      "existing_liabilities_total_outstanding",
+      "totalOutstandingLiabilities"
+    ]);
+    const liabilitiesMonthly = getNumberValue(row, [
+      "existingLiabilitiesMonthlyObligation",
+      "existing_liabilities_monthly_obligation",
+      "monthlyLiabilityPayment"
+    ]);
+
+    let score = 600;
+    let confidence = 100;
+    const reasons: string[] = [];
+
+    const accountOpenRaw = getTextValue(row, ["accountOpeningDate", "account_opening_date"]);
+    if (accountOpenRaw) {
+      const opened = Date.parse(accountOpenRaw);
+      if (!Number.isNaN(opened)) {
+        const activeMonths = Math.max(0, (Date.now() - opened) / (1000 * 60 * 60 * 24 * 30.4375));
+        const stabilityBoost = Math.round(clamp(activeMonths / 60, 0, 1) * 80);
+        score += stabilityBoost;
+        reasons.push(`Account stability contributed +${stabilityBoost}.`);
+      }
+    } else {
+      confidence -= 12;
+      reasons.push("Account opening date is missing; confidence reduced.");
+    }
+
+    if (depositCount !== null) {
+      const depositBoost = Math.round(clamp(depositCount / 24, 0, 1) * 60);
+      score += depositBoost;
+      reasons.push(`Deposit regularity contributed +${depositBoost}.`);
+    } else {
+      confidence -= 10;
+      reasons.push("Deposit regularity data is missing; confidence reduced.");
+    }
+
+    if (monthlyInflow !== null && monthlyOutflow !== null) {
+      const net = monthlyInflow - monthlyOutflow;
+      const balanceBehaviorImpact = Math.round(clamp(net / Math.max(monthlyInflow, 1), -0.5, 0.5) * 120);
+      score += balanceBehaviorImpact;
+      reasons.push(`Balance behavior impact ${balanceBehaviorImpact >= 0 ? "+" : ""}${balanceBehaviorImpact}.`);
+    } else if (currentBalance !== null) {
+      const balanceFallbackImpact = Math.round(clamp(currentBalance / 50000, -0.5, 0.5) * 80);
+      score += balanceFallbackImpact;
+      reasons.push(`Current balance trend proxy impact ${balanceFallbackImpact >= 0 ? "+" : ""}${balanceFallbackImpact}.`);
+    } else {
+      confidence -= 10;
+      reasons.push("Balance behavior inputs are incomplete; confidence reduced.");
+    }
+
+    if (defaultsCount !== null) {
+      const defaultPenalty = -Math.round(clamp(defaultsCount, 0, 3) * 90);
+      score += defaultPenalty;
+      reasons.push(`Repayment history impact ${defaultPenalty}.`);
+    } else {
+      reasons.push("No default-history data found; customer is not auto-penalized.");
+    }
+
+    if (monthlyInflow !== null && monthlyOutflow !== null) {
+      const monthlyDebt = liabilitiesMonthly ?? 0;
+      const debtBurden = monthlyDebt + monthlyOutflow;
+      const capacityRatio = debtBurden / Math.max(monthlyInflow, 1);
+      const debtImpact = -Math.round(clamp(capacityRatio - 0.4, -0.3, 0.6) * 180);
+      score += debtImpact;
+      reasons.push(`Cashflow and debt burden impact ${debtImpact >= 0 ? "+" : ""}${debtImpact}.`);
+    } else {
+      confidence -= 10;
+      reasons.push("Cashflow/debt burden inputs are incomplete; confidence reduced.");
+    }
+
+    if (liabilitiesOutstanding !== null && liabilitiesOutstanding > 0 && monthlyInflow !== null) {
+      const outstandingRatio = liabilitiesOutstanding / Math.max(monthlyInflow * 12, 1);
+      if (outstandingRatio > 1.5) {
+        const outstandingPenalty = -Math.round(Math.min((outstandingRatio - 1.5) * 60, 120));
+        score += outstandingPenalty;
+        reasons.push(`High outstanding liabilities impact ${outstandingPenalty}.`);
+      }
+    }
+
+    if (rowWarnings > 0) {
+      score -= rowWarnings * 20;
+      confidence -= rowWarnings * 8;
+      reasons.push(`${rowWarnings} warning signal(s) found for this row.`);
+    }
+
+    if (rowErrors > 0) {
+      score -= rowErrors * 50;
+      confidence -= rowErrors * 15;
+      reasons.push(`${rowErrors} blocking validation error(s) found for this row.`);
+    }
+
+    const finalScore = Math.round(clamp(score, 0, 1000));
+    const finalConfidence = Math.round(clamp(confidence, 0, 100));
+    const riskCategory = toRiskCategory(finalScore);
+    const manualReviewRequired = rowErrors > 0 || rowWarnings > 0 || finalConfidence < 60;
+
+    const netCashflow = (monthlyInflow ?? 0) - (monthlyOutflow ?? 0) - (liabilitiesMonthly ?? 0);
+    const capacityBasedAmount = roundAmount(Math.max(netCashflow, 0) * 10);
+    const requested = requestedLoanAmount ?? 0;
+
+    let decision: RecommendationDecision = "proceed";
+    if (rowErrors > 0 || manualReviewRequired) {
+      decision = "manual_review";
+    } else if (finalScore < 350 || netCashflow <= 0) {
+      decision = "reject";
+    } else if (capacityBasedAmount > 0 && requested > capacityBasedAmount) {
+      decision = "lower_loan";
+    }
+
+    const suggestedAmount = decision === "reject"
+      ? 0
+      : decision === "lower_loan"
+        ? capacityBasedAmount
+        : roundAmount(Math.max(requested, capacityBasedAmount));
+
+    return {
+      row: rowNumber,
+      customerId,
+      customerName,
+      score: finalScore,
+      riskCategory,
+      confidence: finalConfidence,
+      manualReviewRequired,
+      decision,
+      suggestedAmount,
+      reasons: reasons.slice(0, 5)
+    };
+  });
+}
+
 export function generateRecommendation(rows: BorrowerRow[], validation: ValidationResult): RecommendationResult {
+
+  const customerScores = buildCustomerScores(rows, validation);
 
   const inflows: number[] = [];
   const outflows: number[] = [];
@@ -214,7 +421,9 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
   const netCashflow = avgInflow - avgOutflow;
   const capacityBasedAmount = roundAmount(netCashflow * 10);
   const scored = calculateScoreWithExplanation(validation, avgInflow, avgOutflow, netCashflow, avgRequested, capacityBasedAmount);
-  const score = scored.score;
+  const score = customerScores.length > 0
+    ? Math.round(average(customerScores.map((item) => item.score)))
+    : scored.score;
   const riskCategory = toRiskCategory(score);
   const explanation: RecommendationExplanation = {
     ...scored.explanation,
@@ -225,7 +434,8 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
 
   reasons.push(`Validated ${validation.summary.totalRows} rows with ${validation.summary.errorRows} error rows and ${validation.summary.warningRows} warning rows.`);
   reasons.push(`Estimated average net monthly cashflow is ${roundAmount(netCashflow)}.`);
-  reasons.push(`Calculated borrower score is ${score} with ${riskCategory} risk category.`);
+  reasons.push(`Calculated portfolio score is ${score} with ${riskCategory} risk category.`);
+  reasons.push(`Individual customer scores generated for ${customerScores.length} row(s).`);
 
   if (avgRequested > 0) {
     reasons.push(`Average requested loan amount is ${roundAmount(avgRequested)}.`);
@@ -242,7 +452,8 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
       score,
       riskCategory,
       reasons: reasons.slice(0, 5),
-      explanation
+      explanation,
+      customerScores
     };
   }
 
@@ -255,7 +466,8 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
       score,
       riskCategory,
       reasons: reasons.slice(0, 5),
-      explanation
+      explanation,
+      customerScores
     };
   }
 
@@ -268,7 +480,8 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
       score,
       riskCategory,
       reasons: reasons.slice(0, 5),
-      explanation
+      explanation,
+      customerScores
     };
   }
 
@@ -281,7 +494,8 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
       score,
       riskCategory,
       reasons: reasons.slice(0, 5),
-      explanation
+      explanation,
+      customerScores
     };
   }
 
@@ -293,6 +507,7 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
     score,
     riskCategory,
     reasons: reasons.slice(0, 5),
-    explanation
+    explanation,
+    customerScores
   };
 }

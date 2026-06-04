@@ -20,6 +20,7 @@ import TableCell from "@mui/material/TableCell";
 import TableBody from "@mui/material/TableBody";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import type { ShellLanguage } from "../shell/AppShell";
 
 interface AuditEvent {
   id: string;
@@ -32,6 +33,178 @@ interface AuditEvent {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+
+interface AuditI18n {
+  loadingAuditLog: string;
+  failedToFetchAuditEvents: string;
+  failedToDownloadCsv: string;
+  creditIqAuditLog: string;
+  downloadCsv: string;
+  auditLog: string;
+  startDate: string;
+  endDate: string;
+  action: string;
+  user: string;
+  objectType: string;
+  objectId: string;
+  metadataSearch: string;
+  quickSearchLocal: string;
+  all: string;
+  time: string;
+  object: string;
+  details: string;
+  csvDownloaded: string;
+  rows: string;
+  score: string;
+  risk: string;
+  decision: string;
+  reason: string;
+  file: string;
+  template: string;
+}
+
+const AUDIT_I18N: Record<ShellLanguage, AuditI18n> = {
+  en: {
+    loadingAuditLog: "Loading audit log...",
+    failedToFetchAuditEvents: "Failed to fetch audit events",
+    failedToDownloadCsv: "Failed to download CSV",
+    creditIqAuditLog: "CreditIQ Audit Log",
+    downloadCsv: "Download CSV",
+    auditLog: "Audit Log",
+    startDate: "Start Date",
+    endDate: "End Date",
+    action: "Action",
+    user: "User",
+    objectType: "Object Type",
+    objectId: "Object ID",
+    metadataSearch: "Metadata search",
+    quickSearchLocal: "Quick search (local)",
+    all: "All",
+    time: "Time",
+    object: "Object",
+    details: "Details",
+    csvDownloaded: "CSV downloaded!",
+    rows: "Rows",
+    score: "Score",
+    risk: "Risk",
+    decision: "Decision",
+    reason: "Reason",
+    file: "File",
+    template: "Template"
+  },
+  "en-IN": {
+    loadingAuditLog: "Loading audit log...",
+    failedToFetchAuditEvents: "Failed to fetch audit events",
+    failedToDownloadCsv: "Failed to download CSV",
+    creditIqAuditLog: "CreditIQ Audit Log",
+    downloadCsv: "Download CSV",
+    auditLog: "Audit Log",
+    startDate: "Start Date",
+    endDate: "End Date",
+    action: "Action",
+    user: "User",
+    objectType: "Object Type",
+    objectId: "Object ID",
+    metadataSearch: "Metadata search",
+    quickSearchLocal: "Quick search (local)",
+    all: "All",
+    time: "Time",
+    object: "Object",
+    details: "Details",
+    csvDownloaded: "CSV downloaded!",
+    rows: "Rows",
+    score: "Score",
+    risk: "Risk",
+    decision: "Decision",
+    reason: "Reason",
+    file: "File",
+    template: "Template"
+  },
+  es: {
+    loadingAuditLog: "Cargando registro de auditoria...",
+    failedToFetchAuditEvents: "No se pudo obtener eventos de auditoria",
+    failedToDownloadCsv: "No se pudo descargar CSV",
+    creditIqAuditLog: "Registro de auditoria CreditIQ",
+    downloadCsv: "Descargar CSV",
+    auditLog: "Registro de auditoria",
+    startDate: "Fecha inicio",
+    endDate: "Fecha fin",
+    action: "Accion",
+    user: "Usuario",
+    objectType: "Tipo de objeto",
+    objectId: "ID de objeto",
+    metadataSearch: "Busqueda en metadatos",
+    quickSearchLocal: "Busqueda rapida (local)",
+    all: "Todos",
+    time: "Hora",
+    object: "Objeto",
+    details: "Detalles",
+    csvDownloaded: "CSV descargado!",
+    rows: "Filas",
+    score: "Puntaje",
+    risk: "Riesgo",
+    decision: "Decision",
+    reason: "Motivo",
+    file: "Archivo",
+    template: "Plantilla"
+  },
+  ar: {
+    loadingAuditLog: "جاري تحميل سجل التدقيق...",
+    failedToFetchAuditEvents: "تعذر جلب احداث التدقيق",
+    failedToDownloadCsv: "تعذر تنزيل CSV",
+    creditIqAuditLog: "سجل تدقيق CreditIQ",
+    downloadCsv: "تنزيل CSV",
+    auditLog: "سجل التدقيق",
+    startDate: "تاريخ البداية",
+    endDate: "تاريخ النهاية",
+    action: "الإجراء",
+    user: "المستخدم",
+    objectType: "نوع الكائن",
+    objectId: "معرف الكائن",
+    metadataSearch: "بحث البيانات الوصفية",
+    quickSearchLocal: "بحث سريع (محلي)",
+    all: "الكل",
+    time: "الوقت",
+    object: "الكائن",
+    details: "التفاصيل",
+    csvDownloaded: "تم تنزيل CSV!",
+    rows: "الصفوف",
+    score: "النتيجة",
+    risk: "المخاطر",
+    decision: "القرار",
+    reason: "السبب",
+    file: "الملف",
+    template: "القالب"
+  },
+  "am-ET": {
+    loadingAuditLog: "የኦዲት ማስታወሻ በመጫን ላይ...",
+    failedToFetchAuditEvents: "የኦዲት ክስተቶችን ማምጣት አልተሳካም",
+    failedToDownloadCsv: "CSV ማውረድ አልተሳካም",
+    creditIqAuditLog: "CreditIQ የኦዲት ማስታወሻ",
+    downloadCsv: "CSV አውርድ",
+    auditLog: "የኦዲት ማስታወሻ",
+    startDate: "መጀመሪያ ቀን",
+    endDate: "መጨረሻ ቀን",
+    action: "እርምጃ",
+    user: "ተጠቃሚ",
+    objectType: "የነገር አይነት",
+    objectId: "የነገር መለያ",
+    metadataSearch: "ሜታዳታ ፍለጋ",
+    quickSearchLocal: "ፈጣን ፍለጋ (አካባቢ)",
+    all: "ሁሉም",
+    time: "ሰዓት",
+    object: "ነገር",
+    details: "ዝርዝር",
+    csvDownloaded: "CSV ወርዷል!",
+    rows: "ረድፎች",
+    score: "ውጤት",
+    risk: "አደጋ",
+    decision: "ውሳኔ",
+    reason: "ምክንያት",
+    file: "ፋይል",
+    template: "ቅጥ"
+  }
+};
 
 async function parseJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   const contentType = response.headers?.get?.("content-type") ?? "";
@@ -70,14 +243,14 @@ async function parseApiError(response: Response, fallbackMessage: string): Promi
   }
 }
 
-function MetadataDetail({ action, meta }: { action: string; meta: any }) {
+function MetadataDetail({ action, meta, t }: { action: string; meta: any; t: AuditI18n }) {
   if (!meta || typeof meta !== "object") return <span style={{ color: "#aaa" }}>—</span>;
 
   if (action === "upload_created") {
     return (
       <span style={{ fontSize: "0.85em" }}>
-        <b>File:</b> {meta.fileName ?? "—"}&nbsp;&nbsp;
-        <b>Template:</b> {meta.templateVersion ?? "—"}
+        <b>{t.file}:</b> {meta.fileName ?? "—"}&nbsp;&nbsp;
+        <b>{t.template}:</b> {meta.templateVersion ?? "—"}
       </span>
     );
   }
@@ -86,11 +259,11 @@ function MetadataDetail({ action, meta }: { action: string; meta: any }) {
     const rec = meta.recommendation;
     return (
       <span style={{ fontSize: "0.85em" }}>
-        <b>Rows:</b> {meta.totalRows ?? "—"}&nbsp;
+        <b>{t.rows}:</b> {meta.totalRows ?? "—"}&nbsp;
         <span style={{ color: "#c62828" }}>✗ {meta.errorRows ?? 0} errors</span>&nbsp;
         <span style={{ color: "#f57c00" }}>⚠ {meta.warningRows ?? 0} warnings</span>
         {rec && (
-          <>&nbsp;&nbsp;<b>Decision:</b>&nbsp;
+          <>&nbsp;&nbsp;<b>{t.decision}:</b>&nbsp;
             <span style={{
               padding: "1px 6px",
               borderRadius: 4,
@@ -107,8 +280,8 @@ function MetadataDetail({ action, meta }: { action: string; meta: any }) {
             }}>
               {rec.decision?.replace(/_/g, " ")}
             </span>&nbsp;
-            <b>Score:</b> {rec.score ?? "—"}&nbsp;
-            <b>Risk:</b> {rec.riskCategory ?? "—"}
+            <b>{t.score}:</b> {rec.score ?? "—"}&nbsp;
+            <b>{t.risk}:</b> {rec.riskCategory ?? "—"}
           </>
         )}
       </span>
@@ -118,7 +291,7 @@ function MetadataDetail({ action, meta }: { action: string; meta: any }) {
   if (action === "upload_overridden") {
     return (
       <span style={{ fontSize: "0.85em" }}>
-        <b>Decision:</b>&nbsp;
+        <b>{t.decision}:</b>&nbsp;
         <span style={{
           padding: "1px 6px",
           borderRadius: 4,
@@ -128,7 +301,7 @@ function MetadataDetail({ action, meta }: { action: string; meta: any }) {
         }}>
           {meta.decision?.replace(/_/g, " ")}
         </span>&nbsp;&nbsp;
-        <b>Reason:</b> {meta.reason ?? "—"}
+        <b>{t.reason}:</b> {meta.reason ?? "—"}
       </span>
     );
   }
@@ -144,7 +317,12 @@ function MetadataDetail({ action, meta }: { action: string; meta: any }) {
 }
 
 
-export default function AuditLog() {
+interface AuditLogProps {
+  language?: ShellLanguage;
+}
+
+export default function AuditLog({ language = "en" }: AuditLogProps) {
+  const t = AUDIT_I18N[language] ?? AUDIT_I18N.en;
   const [showSuccess, setShowSuccess] = useState(false);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,10 +340,10 @@ export default function AuditLog() {
     const response = await fetch(`${apiBaseUrl}/api/v1/audit/events?${params.toString()}`);
 
     if (!response.ok) {
-      throw new Error(await parseApiError(response, "Failed to fetch audit events"));
+      throw new Error(await parseApiError(response, t.failedToFetchAuditEvents));
     }
 
-    const data = await parseJsonResponse<{ items?: AuditEvent[] }>(response, "Failed to fetch audit events");
+    const data = await parseJsonResponse<{ items?: AuditEvent[] }>(response, t.failedToFetchAuditEvents);
     setEvents(data.items ?? []);
   }
 
@@ -188,10 +366,10 @@ export default function AuditLog() {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to fetch audit events");
+          setError(err instanceof Error ? err.message : t.failedToFetchAuditEvents);
         setLoading(false);
       });
-  }, [actionFilter, userFilter, objectTypeFilter, objectIdFilter, metadataSearch, startDate, endDate]);
+        }, [actionFilter, userFilter, objectTypeFilter, objectIdFilter, metadataSearch, startDate, endDate, t.failedToFetchAuditEvents]);
 
   const filtered = events.filter((e) => {
     if (actionFilter && e.action_type !== actionFilter) return false;
@@ -215,14 +393,14 @@ export default function AuditLog() {
   const uniqueObjectTypes = Array.from(new Set(events.map((e) => e.object_type)));
   const uniqueObjectIds = Array.from(new Set(events.map((e) => e.object_id)));
 
-  if (loading) return <div>Loading audit log...</div>;
+  if (loading) return <div>{t.loadingAuditLog}</div>;
   if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
 
   // Download CSV handler
   const handleDownloadCSV = async () => {
     try {
       const res = await fetch(`${apiBaseUrl}/api/v1/audit/events/export`);
-      if (!res.ok) throw new Error("Failed to download CSV");
+      if (!res.ok) throw new Error(t.failedToDownloadCsv);
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -234,7 +412,7 @@ export default function AuditLog() {
       window.URL.revokeObjectURL(url);
       setShowSuccess(true);
     } catch (err) {
-      alert("Failed to download CSV");
+      alert(t.failedToDownloadCsv);
     }
   };
 
@@ -244,7 +422,7 @@ export default function AuditLog() {
       <AppBar position="static" color="primary" elevation={2}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            <span style={{ fontWeight: 700, letterSpacing: 1 }}>CreditIQ Audit Log</span>
+            <span style={{ fontWeight: 700, letterSpacing: 1 }}>{t.creditIqAuditLog}</span>
           </Typography>
           <Button
             color="inherit"
@@ -252,7 +430,7 @@ export default function AuditLog() {
             onClick={handleDownloadCSV}
             sx={{ ml: 2 }}
           >
-            Download CSV
+            {t.downloadCsv}
           </Button>
         </Toolbar>
       </AppBar>
@@ -260,84 +438,84 @@ export default function AuditLog() {
       <Box sx={{ maxWidth: 1200, mx: "auto", mt: 4, p: 2 }}>
         <Paper sx={{ p: 3, mb: 3 }} elevation={3}>
           <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-            Audit Log
+            {t.auditLog}
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2 }}>
             <TextField
-              label="Start Date"
+              label={t.startDate}
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
               size="small"
             />
             <TextField
-              label="End Date"
+              label={t.endDate}
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
               size="small"
             />
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Action</InputLabel>
+              <InputLabel>{t.action}</InputLabel>
               <Select
-                label="Action"
+                label={t.action}
                 value={actionFilter}
                 onChange={e => setActionFilter(e.target.value)}
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">{t.all}</MenuItem>
                 {uniqueActions.map((a) => (
                   <MenuItem key={a} value={a}>{a}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>User</InputLabel>
+              <InputLabel>{t.user}</InputLabel>
               <Select
-                label="User"
+                label={t.user}
                 value={userFilter}
                 onChange={e => setUserFilter(e.target.value)}
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">{t.all}</MenuItem>
                 {uniqueUsers.map((u) => (
                   <MenuItem key={u} value={u}>{u}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Object Type</InputLabel>
+              <InputLabel>{t.objectType}</InputLabel>
               <Select
-                label="Object Type"
+                label={t.objectType}
                 value={objectTypeFilter}
                 onChange={e => setObjectTypeFilter(e.target.value)}
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">{t.all}</MenuItem>
                 {uniqueObjectTypes.map((t) => (
                   <MenuItem key={t} value={t}>{t}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Object ID</InputLabel>
+              <InputLabel>{t.objectId}</InputLabel>
               <Select
-                label="Object ID"
+                label={t.objectId}
                 value={objectIdFilter}
                 onChange={e => setObjectIdFilter(e.target.value)}
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">{t.all}</MenuItem>
                 {uniqueObjectIds.map((id) => (
                   <MenuItem key={id} value={id}>{id}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <TextField
-              label="Metadata search"
+              label={t.metadataSearch}
               value={metadataSearch}
               onChange={e => setMetadataSearch(e.target.value)}
               size="small"
               sx={{ minWidth: 180 }}
             />
             <TextField
-              label="Quick search (local)"
+              label={t.quickSearchLocal}
               value={search}
               onChange={e => setSearch(e.target.value)}
               size="small"
@@ -346,7 +524,7 @@ export default function AuditLog() {
           </Box>
 
           {loading ? (
-            <Typography>Loading audit log...</Typography>
+            <Typography>{t.loadingAuditLog}</Typography>
           ) : error ? (
             <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
           ) : (
@@ -354,11 +532,11 @@ export default function AuditLog() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Time</TableCell>
-                    <TableCell>User</TableCell>
-                    <TableCell>Action</TableCell>
-                    <TableCell>Object</TableCell>
-                    <TableCell>Details</TableCell>
+                    <TableCell>{t.time}</TableCell>
+                    <TableCell>{t.user}</TableCell>
+                    <TableCell>{t.action}</TableCell>
+                    <TableCell>{t.object}</TableCell>
+                    <TableCell>{t.details}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -392,7 +570,7 @@ export default function AuditLog() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <MetadataDetail action={e.action_type} meta={e.metadata_json} />
+                        <MetadataDetail action={e.action_type} meta={e.metadata_json} t={t} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -409,7 +587,7 @@ export default function AuditLog() {
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert onClose={() => setShowSuccess(false)} severity="success" sx={{ width: '100%' }}>
-          CSV downloaded!
+          {t.csvDownloaded}
         </Alert>
       </Snackbar>
     </Box>

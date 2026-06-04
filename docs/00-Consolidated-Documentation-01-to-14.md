@@ -239,6 +239,13 @@ FR-002 Data Validation
 FR-003 Scoring Engine
 - System shall compute a score in the range 0 to 1000.
 - System shall use defined scoring factors and weight logic.
+- System shall include a confidence score or automatically mark the case for manual review when data quality or data completeness is low.
+- System shall use five broad scoring areas for v1 formula design:
+	- Account stability: longer active account should improve score.
+	- Deposit regularity: regular deposits should improve score.
+	- Balance behavior: stable or improving balance should improve score.
+	- Repayment history: good past repayment should improve score; no past loan must not automatically reduce score.
+	- Cashflow and debt burden: stronger repayment capacity should improve score; high existing debt should reduce score.
 
 FR-004 Risk Categorization
 - System shall map scores to risk categories.
@@ -284,7 +291,7 @@ NFR-005 Auditability
 NFR-006 Maintainability
 - Configuration-driven score ranges and category thresholds.
 
-## 5. Risk Categories
+## 5. Risk Categories and Sample Data Requirements
 
 - 800-1000: Very Good
 - 650-799: Good
@@ -292,6 +299,12 @@ NFR-006 Maintainability
 - 350-499: Weak
 - Below 350: High Risk
 - Not enough data: Insufficient Data
+
+Sample data requirements for client review and UAT:
+- Current balance in account
+- Number of deposits in the last 12 to 24 months
+- Any defaults in the last 12 to 24 months
+- Existing liabilities: total amount outstanding and monthly payment obligations
 
 ## 6. Acceptance Criteria (Sample)
 
@@ -301,6 +314,9 @@ NFR-006 Maintainability
 - AC-004: Each assessment includes exactly five explanations.
 - AC-005: Override cannot be saved without reason.
 - AC-006: Assessment report can be printed or exported as PDF.
+- AC-007: Sample upload template includes the required account balance, deposit activity, default history, and liabilities fields.
+- AC-008: If confidence is below threshold, output includes confidence score and/or mandatory manual review flag.
+- AC-009: Final score always remains within 0 to 1000 even after applying all scoring area factors.
 
 ## 7. Dependencies
 
@@ -341,23 +357,31 @@ Mandatory baseline fields:
 - Customer ID
 - Branch ID
 - Account opening date
+- Current balance in account
 - Monthly inflow
 - Monthly outflow
+- Number of deposits in the last 12 to 24 months
+- Any defaults in the last 12 to 24 months
+- Existing liabilities: total amount outstanding
+- Existing liabilities: monthly payment obligations
 - Requested loan amount
 - Requested tenure
 
 Optional fields:
 - Deposit regularity metrics
 - Previous loan repayment details
-- Outstanding debt details
+- Additional outstanding debt details beyond mandatory liabilities fields
 
 ## 4. Processing Requirements
 
 - Validate schema and field types.
 - Normalize date and numeric fields.
 - Compute intermediate indicators.
-- Apply weighted scoring formula.
+- Apply weighted scoring formula across five areas: account stability, deposit regularity, balance behavior, repayment history, and cashflow/debt burden.
+- Ensure repayment-history logic does not penalize customers only because they have no prior loan history.
+- Compute confidence score from data quality/completeness, or force manual review when confidence is below policy threshold.
 - Generate explanations and category.
+- Constrain final score output to range 0 to 1000.
 - Persist record and emit report object.
 
 ## 5. API Requirements (Initial)

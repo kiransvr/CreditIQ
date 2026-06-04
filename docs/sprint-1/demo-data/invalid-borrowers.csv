@@ -1,4 +1,4 @@
-customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure
-CUST-010,not-a-date,10000,6000,35000,12
-CUST-011,2024-05-02,,7100,15000,12
-CUST-012,2024-01-15,abc,5200,20000,8
+customerId,accountOpeningDate,currentBalance,monthlyInflow,monthlyOutflow,depositsLast12To24Months,defaultsLast12To24Months,existingLiabilitiesTotalOutstanding,existingLiabilitiesMonthlyObligation,requestedLoanAmount,requestedTenure
+CUST-010,not-a-date,50000,10000,6000,12,0,20000,1200,35000,12
+CUST-011,2024-05-02,, ,7100,,1,25000,1600,15000,12
+CUST-012,2024-01-15,abc,abc,5200,xyz,0,unknown,900,20000,8

@@ -42,6 +42,18 @@ interface UploadRecommendation {
   score: number;
   riskCategory: string;
   reasons: string[];
+  customerScores: Array<{
+    row: number;
+    customerId: string;
+    customerName?: string;
+    score: number;
+    riskCategory: string;
+    confidence: number;
+    manualReviewRequired: boolean;
+    decision: string;
+    suggestedAmount: number;
+    reasons: string[];
+  }>;
   explanation: {
     baseScore: number;
     components: Array<{
@@ -180,6 +192,18 @@ type UploadRowRecord = {
           detail?: string;
         }>;
         policyNotes?: string[];
+        customerScores?: Array<{
+          row?: number;
+          customerId?: string;
+          customerName?: string;
+          score?: number;
+          riskCategory?: string;
+          confidence?: number;
+          manualReviewRequired?: boolean;
+          decision?: string;
+          suggestedAmount?: number;
+          reasons?: string[];
+        }>;
       }
     | null;
 };
@@ -295,6 +319,7 @@ class InMemoryUploadRepository implements UploadRepository {
         score: 0,
         riskCategory: "very_high",
         reasons: [],
+        customerScores: [],
         explanation: {
           baseScore: 0,
           components: [],
@@ -343,6 +368,7 @@ class InMemoryUploadRepository implements UploadRepository {
       score: recommendation.score,
       riskCategory: recommendation.riskCategory,
       reasons: recommendation.reasons,
+      customerScores: recommendation.customerScores,
       explanation: recommendation.explanation
     };
 
@@ -694,7 +720,10 @@ class PostgresUploadRepository implements UploadRepository {
           JSON.stringify(recommendation.reasons),
           recommendation.score,
           recommendation.riskCategory,
-          JSON.stringify(recommendation.explanation)
+          JSON.stringify({
+            ...recommendation.explanation,
+            customerScores: recommendation.customerScores
+          })
         ]
       );
 
@@ -728,6 +757,7 @@ class PostgresUploadRepository implements UploadRepository {
           score: recommendation.score,
           riskCategory: recommendation.riskCategory,
           reasons: recommendation.reasons,
+          customerScores: recommendation.customerScores,
           explanation: recommendation.explanation
         }
       };
@@ -768,6 +798,18 @@ class PostgresUploadRepository implements UploadRepository {
               detail?: string;
             }>;
             policyNotes?: string[];
+            customerScores?: Array<{
+              row?: number;
+              customerId?: string;
+              customerName?: string;
+              score?: number;
+              riskCategory?: string;
+              confidence?: number;
+              manualReviewRequired?: boolean;
+              decision?: string;
+              suggestedAmount?: number;
+              reasons?: string[];
+            }>;
           }
         | null;
     }>(
@@ -880,6 +922,18 @@ class PostgresUploadRepository implements UploadRepository {
         score: upload.recommended_score ?? 0,
         riskCategory: upload.recommended_risk_category ?? "very_high",
         reasons: upload.recommendation_reasons ?? [],
+        customerScores: (upload.recommendation_explanation?.customerScores ?? []).map((item) => ({
+          row: item.row ?? 0,
+          customerId: item.customerId ?? "",
+          customerName: item.customerName,
+          score: item.score ?? 0,
+          riskCategory: item.riskCategory ?? "very_high",
+          confidence: item.confidence ?? 0,
+          manualReviewRequired: item.manualReviewRequired ?? true,
+          decision: item.decision ?? "manual_review",
+          suggestedAmount: item.suggestedAmount ?? 0,
+          reasons: item.reasons ?? []
+        })),
         explanation: {
           baseScore: upload.recommendation_explanation?.baseScore ?? 0,
           components: (upload.recommendation_explanation?.components ?? []).map((component) => ({
