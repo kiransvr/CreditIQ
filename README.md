@@ -30,6 +30,8 @@ This repository currently contains the business and delivery documentation requi
 - [Sprint 1 Evidence - Demo Execution Notes](docs/sprint-1/evidence/demo-execution-notes.md)
 - [Sprint 2 Kickoff and UI Plan](docs/sprint-2/01-Sprint-2-Kickoff-and-UI-Plan.md)
 - [Development Quickstart](docs/14-Development-Quickstart.md)
+- [Client Update Implementation Plan](docs/16-Client-Update-Implementation-Plan.md)
+- [Implementation Log (When and What)](docs/17-Implementation-Log.md)
 
 ## Current Product Scope (Phase 1)
 

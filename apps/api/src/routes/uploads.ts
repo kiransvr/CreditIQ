@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { parseBorrowerRowsFromUpload } from "../services/fileParser.js";
+import { assertNoProhibitedFeatures } from "../services/policyGuard.js";
 import { generateRecommendation } from "../services/recommendation.js";
 import { buildValidationReportCsv } from "../services/report.js";
 import { getUploadRepository } from "../services/uploadRepository.js";
@@ -150,6 +151,7 @@ uploadsRouter.post(
           });
         }
       }
+      assertNoProhibitedFeatures(rows);
       const result = validateBorrowerRows(rows);
       const recommendation = generateRecommendation(rows, result);
       const persisted = await uploadRepository.validateUpload(uploadId, rows, result, recommendation);

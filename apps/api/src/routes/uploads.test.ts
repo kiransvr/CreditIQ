@@ -171,3 +171,35 @@ test("validate returns parse error for malformed xlsx upload", async () => {
   assert.equal(validateResponse.status, 400);
   assert.equal(validateResponse.body.code, "UPLOAD_PARSE_FAILED");
 });
+
+test("validate fails loudly when prohibited sensitive fields are present", async () => {
+  const app = createApp();
+
+  const csv = [
+    "customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure,gender,maritalStatus",
+    "CUST-001,2024-01-01,1000,500,3000,12,Female,Married"
+  ].join("\n");
+
+  const uploadResponse = await request(app)
+    .post("/api/v1/uploads")
+    .set(authHeaders())
+    .field("institutionId", "demo-bank")
+    .field("templateVersion", "v1")
+    .attach("file", Buffer.from(csv, "utf-8"), {
+      filename: "borrowers-sensitive.csv",
+      contentType: "text/csv"
+    });
+
+  assert.equal(uploadResponse.status, 201);
+  const uploadId = uploadResponse.body.uploadId as string;
+
+  const validateResponse = await request(app)
+    .post(`/api/v1/uploads/${uploadId}/validate`)
+    .set(authHeaders("risk_analyst"))
+    .send({});
+
+  assert.equal(validateResponse.status, 400);
+  assert.equal(validateResponse.body.code, "PROHIBITED_FEATURE_PRESENT");
+  assert.equal(Array.isArray(validateResponse.body.details), true);
+  assert.ok(validateResponse.body.details.length >= 1);
+});
