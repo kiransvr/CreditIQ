@@ -286,18 +286,24 @@ button:not(.MuiButton-root):not(.MuiIconButton-root):disabled {
   color: #0c4f61;
 }
 
-.risk-badge.low {
+.risk-badge.prime {
+  background: #d9f2e1;
+  color: #135b35;
+}
+
+.risk-badge.good {
   background: #d8f7e4;
   color: #135b35;
 }
 
-.risk-badge.medium {
+.risk-badge.fair {
   background: #ffeebc;
   color: #8a540f;
 }
 
-.risk-badge.high,
-.risk-badge.very_high,
+.risk-badge.marginal,
+.risk-badge.high_risk,
+.risk-badge.insufficient,
 .risk-badge.unknown {
   background: #fbded7;
   color: #8d2918;

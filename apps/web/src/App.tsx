@@ -149,15 +149,17 @@ function normalizeUploadDetails(payload: UploadDetails): UploadDetails {
   };
 }
 
-type RiskCategory = "low" | "medium" | "high" | "very_high";
+type RiskCategory = "prime" | "good" | "fair" | "marginal" | "high_risk" | "insufficient";
 
 function toRiskLabel(riskCategory: string, language: ShellLanguage): string {
   if (language === "am-ET") {
     const amLabels: Record<RiskCategory, string> = {
-      low: "ዝቅተኛ",
-      medium: "መካከለኛ",
-      high: "ከፍተኛ",
-      very_high: "በጣም ከፍተኛ"
+      prime: "ፕራይም",
+      good: "ጥሩ",
+      fair: "መካከለኛ",
+      marginal: "ድካም",
+      high_risk: "ከፍተኛ አደጋ",
+      insufficient: "ውጤት የለም"
     };
 
     if (riskCategory in amLabels) {
@@ -168,10 +170,12 @@ function toRiskLabel(riskCategory: string, language: ShellLanguage): string {
   }
 
   const labels: Record<RiskCategory, string> = {
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    very_high: "Very High"
+    prime: "Prime",
+    good: "Good",
+    fair: "Fair",
+    marginal: "Marginal",
+    high_risk: "High Risk",
+    insufficient: "Insufficient"
   };
 
   if (riskCategory in labels) {
