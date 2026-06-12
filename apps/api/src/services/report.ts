@@ -14,6 +14,13 @@ interface ReportRecommendation {
       detail: string;
     }>;
     policyNotes: string[];
+    marketAdjustment?: {
+      factor: number;
+      rawScore: number;
+      adjustedScore: number;
+      inflationPercent: number;
+      devaluationPercent: number;
+    };
   };
 }
 
@@ -53,6 +60,13 @@ export function buildValidationReportCsv(
   }
   if (recommendation.explanation.policyNotes[0]) {
     lines.push(`summary,topPolicyNote,${toCsvCell(recommendation.explanation.policyNotes[0])}`);
+  }
+  if (recommendation.explanation.marketAdjustment) {
+    lines.push(`summary,marketAdjustmentFactor,${recommendation.explanation.marketAdjustment.factor}`);
+    lines.push(`summary,rawScoreBeforeMarketAdjustment,${recommendation.explanation.marketAdjustment.rawScore}`);
+    lines.push(`summary,adjustedScoreAfterMarketAdjustment,${recommendation.explanation.marketAdjustment.adjustedScore}`);
+    lines.push(`summary,inflationPercent,${recommendation.explanation.marketAdjustment.inflationPercent}`);
+    lines.push(`summary,devaluationPercent,${recommendation.explanation.marketAdjustment.devaluationPercent}`);
   }
   lines.push("");
 

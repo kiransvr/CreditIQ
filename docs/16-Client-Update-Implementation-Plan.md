@@ -87,6 +87,8 @@ Implement deterministic calculations:
 ### Gate A: Data and Schema Gate
 - Migration 007 applied in all environments.
 - FAIRNESS_AUDIT table queryable by auditor role.
+- Migration 008 applied in all environments.
+- SCORE_MARKET_ADJUSTMENT_FACTORS table queryable with an active effective-dated factor.
 
 ### Gate B: Fairness Gate
 - Audit executed for each retraining run.
@@ -121,8 +123,11 @@ Total remaining after current critical patch: 9 to 13 engineer-days
   - Fairness audit API and persistence
   - Prohibited-feature hard assertion
   - Regression tests for both
+  - Golden dataset tests for deterministic F1-F6 and score reproducibility
+  - Inflation/devaluation recalibration module with adjusted-score traceability output
 - In-progress:
   - Environment migration rollout for 007
+  - Environment migration rollout for 008
   - API contract publication update
 
 ### Sprint 6 (Next)

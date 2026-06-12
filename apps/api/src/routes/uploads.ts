@@ -153,7 +153,7 @@ uploadsRouter.post(
       }
       assertNoProhibitedFeatures(rows);
       const result = validateBorrowerRows(rows);
-      const recommendation = generateRecommendation(rows, result);
+      const recommendation = await generateRecommendation(rows, result);
       const persisted = await uploadRepository.validateUpload(uploadId, rows, result, recommendation);
       if (!persisted) {
         return res.status(404).json({

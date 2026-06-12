@@ -63,6 +63,32 @@ interface UploadRecommendation {
       detail: string;
     }>;
     policyNotes: string[];
+    weightedSignals?: Array<{
+      key: string;
+      label: string;
+      weight: number;
+      value: number;
+      impact: number;
+    }>;
+    rationaleCategories?: Array<{
+      category: string;
+      rationale: string;
+      impact: number;
+    }>;
+    scoreTrend?: Array<{
+      label: string;
+      value: number;
+    }>;
+    marketAdjustment?: {
+      source: "database" | "in_memory_default";
+      effectiveFrom: string;
+      effectiveTo: string | null;
+      inflationPercent: number;
+      devaluationPercent: number;
+      factor: number;
+      rawScore: number;
+      adjustedScore: number;
+    };
   };
 }
 
@@ -192,6 +218,32 @@ type UploadRowRecord = {
           detail?: string;
         }>;
         policyNotes?: string[];
+        weightedSignals?: Array<{
+          key?: string;
+          label?: string;
+          weight?: number;
+          value?: number;
+          impact?: number;
+        }>;
+        rationaleCategories?: Array<{
+          category?: string;
+          rationale?: string;
+          impact?: number;
+        }>;
+        scoreTrend?: Array<{
+          label?: string;
+          value?: number;
+        }>;
+        marketAdjustment?: {
+          source?: "database" | "in_memory_default";
+          effectiveFrom?: string;
+          effectiveTo?: string | null;
+          inflationPercent?: number;
+          devaluationPercent?: number;
+          factor?: number;
+          rawScore?: number;
+          adjustedScore?: number;
+        };
         customerScores?: Array<{
           row?: number;
           customerId?: string;
@@ -798,6 +850,32 @@ class PostgresUploadRepository implements UploadRepository {
               detail?: string;
             }>;
             policyNotes?: string[];
+            weightedSignals?: Array<{
+              key?: string;
+              label?: string;
+              weight?: number;
+              value?: number;
+              impact?: number;
+            }>;
+            rationaleCategories?: Array<{
+              category?: string;
+              rationale?: string;
+              impact?: number;
+            }>;
+            scoreTrend?: Array<{
+              label?: string;
+              value?: number;
+            }>;
+            marketAdjustment?: {
+              source?: "database" | "in_memory_default";
+              effectiveFrom?: string;
+              effectiveTo?: string | null;
+              inflationPercent?: number;
+              devaluationPercent?: number;
+              factor?: number;
+              rawScore?: number;
+              adjustedScore?: number;
+            };
             customerScores?: Array<{
               row?: number;
               customerId?: string;
@@ -942,7 +1020,35 @@ class PostgresUploadRepository implements UploadRepository {
             impact: component.impact ?? 0,
             detail: component.detail ?? ""
           })),
-          policyNotes: upload.recommendation_explanation?.policyNotes ?? []
+          policyNotes: upload.recommendation_explanation?.policyNotes ?? [],
+          weightedSignals: (upload.recommendation_explanation?.weightedSignals ?? []).map((signal) => ({
+            key: signal.key ?? "unknown",
+            label: signal.label ?? "Unknown",
+            weight: signal.weight ?? 0,
+            value: signal.value ?? 0,
+            impact: signal.impact ?? 0
+          })),
+          rationaleCategories: (upload.recommendation_explanation?.rationaleCategories ?? []).map((category) => ({
+            category: category.category ?? "unknown",
+            rationale: category.rationale ?? "",
+            impact: category.impact ?? 0
+          })),
+          scoreTrend: (upload.recommendation_explanation?.scoreTrend ?? []).map((trend) => ({
+            label: trend.label ?? "unknown",
+            value: trend.value ?? 0
+          })),
+          marketAdjustment: upload.recommendation_explanation?.marketAdjustment
+            ? {
+                source: upload.recommendation_explanation.marketAdjustment.source ?? "in_memory_default",
+                effectiveFrom: upload.recommendation_explanation.marketAdjustment.effectiveFrom ?? "",
+                effectiveTo: upload.recommendation_explanation.marketAdjustment.effectiveTo ?? null,
+                inflationPercent: upload.recommendation_explanation.marketAdjustment.inflationPercent ?? 0,
+                devaluationPercent: upload.recommendation_explanation.marketAdjustment.devaluationPercent ?? 0,
+                factor: upload.recommendation_explanation.marketAdjustment.factor ?? 1,
+                rawScore: upload.recommendation_explanation.marketAdjustment.rawScore ?? 0,
+                adjustedScore: upload.recommendation_explanation.marketAdjustment.adjustedScore ?? 0
+              }
+            : undefined
         }
       },
       fileName: upload.file_name,

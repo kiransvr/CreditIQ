@@ -1,4 +1,5 @@
 import type { BorrowerRow, ValidationResult } from "./validation.js";
+import { getActiveMarketAdjustment, type MarketAdjustmentFactor } from "./marketAdjustment.js";
 
 export type RecommendationDecision = "proceed" | "lower_loan" | "manual_review" | "reject";
 export type RiskCategory = "low" | "medium" | "high" | "very_high";
@@ -27,6 +28,16 @@ export interface RecommendationExplanation {
     impact: number;
   }>;
   scoreTrend: Array<{ label: string; value: number }>;
+  marketAdjustment: {
+    source: "database" | "in_memory_default";
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    inflationPercent: number;
+    devaluationPercent: number;
+    factor: number;
+    rawScore: number;
+    adjustedScore: number;
+  };
 }
 
 export interface RecommendationResult {
@@ -652,7 +663,15 @@ function toRiskCategory(score: number): RiskCategory {
 function calculateScoreFromFeatures(
   features: ModelFeatures,
   validation: ValidationResult,
-  featureNotes: string[] = []
+  featureNotes: string[] = [],
+  marketAdjustment: MarketAdjustmentFactor = {
+    factor: 1,
+    inflationPercent: 0,
+    devaluationPercent: 0,
+    effectiveFrom: "1970-01-01T00:00:00Z",
+    effectiveTo: null,
+    source: "in_memory_default"
+  }
 ): { score: number; explanation: RecommendationExplanation } {
   const baseScore = 500;
   const { groupScores, notes } = computeGroupScores(features);
@@ -666,7 +685,8 @@ function calculateScoreFromFeatures(
     groupScores.overdraftExposure * GROUP_WEIGHTS.overdraftExposure;
 
   const qualityPenalty = validation.summary.errorRows * 80 + validation.summary.warningRows * 20;
-  const finalScore = Math.round(clamp(weightedRawScore - qualityPenalty, 0, 1000));
+  const rawScore = Math.round(clamp(weightedRawScore - qualityPenalty, 0, 1000));
+  const adjustedScore = Math.round(clamp(rawScore * marketAdjustment.factor, 0, 1000));
 
   const components: ScoreComponent[] = [
     {
@@ -712,6 +732,12 @@ function calculateScoreFromFeatures(
       label: "Data quality adjustment",
       impact: -qualityPenalty,
       detail: `${validation.summary.errorRows} error row(s) and ${validation.summary.warningRows} warning row(s).`
+    },
+    {
+      key: "market_adjustment",
+      label: "Market adjustment recalibration",
+      impact: adjustedScore - rawScore,
+      detail: `Factor ${marketAdjustment.factor.toFixed(4)} using inflation ${marketAdjustment.inflationPercent}% and devaluation ${marketAdjustment.devaluationPercent}%.`
     }
   ];
 
@@ -733,23 +759,42 @@ function calculateScoreFromFeatures(
   const scoreTrend = [
     { label: "Base Score", value: baseScore },
     { label: "Weighted Raw Score", value: Math.round(weightedRawScore) },
-    { label: "Final Score", value: finalScore }
+    { label: "Raw Score", value: rawScore },
+    { label: "Adjusted Score", value: adjustedScore }
   ];
 
   return {
-    score: finalScore,
+    score: adjustedScore,
     explanation: {
       baseScore,
       components,
-      policyNotes: [...featureNotes, ...notes],
+      policyNotes: [
+        ...featureNotes,
+        ...notes,
+        `Market recalibration factor ${marketAdjustment.factor.toFixed(4)} applied (${marketAdjustment.source}).`
+      ],
       weightedSignals,
       rationaleCategories,
-      scoreTrend
+      scoreTrend,
+      marketAdjustment: {
+        source: marketAdjustment.source,
+        effectiveFrom: marketAdjustment.effectiveFrom,
+        effectiveTo: marketAdjustment.effectiveTo,
+        inflationPercent: marketAdjustment.inflationPercent,
+        devaluationPercent: marketAdjustment.devaluationPercent,
+        factor: marketAdjustment.factor,
+        rawScore,
+        adjustedScore
+      }
     }
   };
 }
 
-function buildCustomerScores(rows: BorrowerRow[], validation: ValidationResult): CustomerScore[] {
+function buildCustomerScores(
+  rows: BorrowerRow[],
+  validation: ValidationResult,
+  marketAdjustment: MarketAdjustmentFactor
+): CustomerScore[] {
   const errorsByRow = new Map<number, number>();
   const warningsByRow = new Map<number, number>();
 
@@ -779,7 +824,7 @@ function buildCustomerScores(rows: BorrowerRow[], validation: ValidationResult):
       },
       errors: [],
       warnings: []
-    }, builtFeatures.notes);
+    }, builtFeatures.notes, marketAdjustment);
 
     let score = scored.score;
     let confidence = 100;
@@ -841,9 +886,10 @@ function buildCustomerScores(rows: BorrowerRow[], validation: ValidationResult):
   });
 }
 
-export function generateRecommendation(rows: BorrowerRow[], validation: ValidationResult): RecommendationResult {
+export async function generateRecommendation(rows: BorrowerRow[], validation: ValidationResult): Promise<RecommendationResult> {
+  const marketAdjustment = await getActiveMarketAdjustment();
 
-  const customerScores = buildCustomerScores(rows, validation);
+  const customerScores = buildCustomerScores(rows, validation, marketAdjustment);
 
   const inflows: number[] = [];
   const outflows: number[] = [];
@@ -856,7 +902,7 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
     const inflow = features.monthlyInflow;
     const outflow = features.monthlyOutflow;
     const requested = features.requestedLoanAmount;
-    const scoredRow = calculateScoreFromFeatures(features, validation, builtFeatures.notes);
+    const scoredRow = calculateScoreFromFeatures(features, validation, builtFeatures.notes, marketAdjustment);
     portfolioGroupScores.push(scoredRow.score);
 
     if (Number.isFinite(inflow)) {
@@ -912,7 +958,7 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
     monthlyClosingBalances12m: new Array(12).fill(avgInflow - avgOutflow),
     monthlyDepositTotals12m: new Array(12).fill(avgInflow)
   };
-  const scored = calculateScoreFromFeatures(portfolioFeatureProxy, validation);
+  const scored = calculateScoreFromFeatures(portfolioFeatureProxy, validation, [], marketAdjustment);
   const score = customerScores.length > 0
     ? Math.round(average(customerScores.map((item) => item.score)))
     : (portfolioGroupScores.length > 0 ? Math.round(average(portfolioGroupScores)) : scored.score);
@@ -1003,3 +1049,9 @@ export function generateRecommendation(rows: BorrowerRow[], validation: Validati
     customerScores
   };
 }
+
+// Test hook for golden dataset assertions.
+export const recommendationInternalsForTest = {
+  buildModelFeatures,
+  calculateScoreFromFeatures
+};

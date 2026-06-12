@@ -70,5 +70,50 @@
 - Build: passed (npm run build at repo root).
 
 ### Remaining
-- Add golden dataset tests that lock expected outputs for each F1-F6 formula case.
-- Add inflation/devaluation recalibration factor and adjusted-score traceability output.
+- No remaining engineering items for the two critical client updates; rollout and UAT compliance evidence still pending.
+
+## 2026-06-12 - Golden Dataset Scoring Tests Completed
+
+### What was implemented
+- Added deterministic golden dataset tests for recommendation scoring internals covering F1-F6 feature extraction and policy-path behavior.
+- Added reproducibility baseline assertion for weighted score output on a fixed input dataset.
+
+### Files changed
+- apps/api/src/services/recommendation.ts
+- apps/api/src/services/recommendation.golden.test.ts
+
+### Verification
+- API golden test suite passed:
+  - npx vitest run src/services/recommendation.golden.test.ts
+
+## 2026-06-12 - Inflation/Devaluation Recalibration Completed
+
+### What was implemented
+- Added effective-dated market adjustment factor support for recommendation scoring.
+- Added migration-backed config table for factor history (`score_market_adjustment_factors`) with seed data.
+- Applied recalibration factor to post-quality raw score to produce adjusted score.
+- Added explanation traceability output for:
+  - factor source
+  - effective date window
+  - inflation and devaluation percentages
+  - raw score before adjustment
+  - adjusted score after recalibration
+- Added golden tests asserting recalibration behavior and explanation traceability.
+
+### Files changed
+- apps/api/src/services/marketAdjustment.ts
+- apps/api/src/services/recommendation.ts
+- apps/api/src/services/recommendation.golden.test.ts
+- apps/api/src/routes/uploads.ts
+- apps/api/src/services/uploadRepository.ts
+- apps/api/src/services/report.ts
+- apps/api/db/migrations/008_add_score_market_adjustment_factors.sql
+- packages/contracts/src/index.ts
+
+### Verification
+- API golden tests passed:
+  - npx vitest run src/services/recommendation.golden.test.ts
+- API package build passed:
+  - npm run build --workspace @creditiq/api
+- Monorepo build passed:
+  - npm run build --workspaces --if-present

@@ -46,5 +46,15 @@ export interface UploadRecommendation {
       detail: string;
     }>;
     policyNotes: string[];
+    marketAdjustment?: {
+      source: "database" | "in_memory_default";
+      effectiveFrom: string;
+      effectiveTo: string | null;
+      inflationPercent: number;
+      devaluationPercent: number;
+      factor: number;
+      rawScore: number;
+      adjustedScore: number;
+    };
   };
 }
