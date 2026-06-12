@@ -1091,7 +1091,25 @@ function buildCustomerScores(
     const manualReviewRequired = rowErrors > 0 || rowWarnings > 0 || finalConfidence < 60 || !scoreAvailable;
 
     if (!scoreAvailable) {
-      reasons.push("Score not issued because account tenure is below 180 days or account status is not ACTIVE.");
+      const scoreUnavailableReasons: string[] = [];
+
+      if (!features.scoreEligible) {
+        scoreUnavailableReasons.push(
+          `insufficient eligibility inputs (tenure ${features.tenureDays} days, status ${features.accountStatus}; requires >= ${MIN_ACCOUNT_TENURE_DAYS} days and ${ACTIVE_ACCOUNT_STATUS})`
+        );
+      }
+
+      if (accountNotEligible) {
+        scoreUnavailableReasons.push(`account status ${features.accountStatus} is not eligible for scoring`);
+      }
+
+      if (balanceDataInvalid) {
+        scoreUnavailableReasons.push("balance data is missing (all balance_after values null)");
+      }
+
+      reasons.push(
+        `Score not issued because ${scoreUnavailableReasons.length > 0 ? scoreUnavailableReasons.join("; ") : "required scoring conditions were not met"}.`
+      );
     }
 
     let errorCode: string | undefined;

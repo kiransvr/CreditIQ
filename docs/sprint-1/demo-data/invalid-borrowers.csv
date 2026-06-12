@@ -1,4 +1,6 @@
-customerId,accountOpeningDate,currentBalance,monthlyInflow,monthlyOutflow,depositsLast12To24Months,defaultsLast12To24Months,existingLiabilitiesTotalOutstanding,existingLiabilitiesMonthlyObligation,requestedLoanAmount,requestedTenure
-CUST-010,not-a-date,50000,10000,6000,12,0,20000,1200,35000,12
-CUST-011,2024-05-02,, ,7100,,1,25000,1600,15000,12
-CUST-012,2024-01-15,abc,abc,5200,xyz,0,unknown,900,20000,8
+customerId,dateOfBirth,gender,branchCode,accountOpeningDate,accountStatus,customerSegment,urbanRuralFlag,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure,balance_after
+,1990-10-01,M,BR-010,2023-02-01,ACTIVE,RETAIL,U,12000,6500,45000,12,25000
+CUST-INV-002,1992-12-05,F,BR-012,not-a-date,ACTIVE,RETAIL,U,15000,7000,55000,12,28000
+CUST-INV-003,1987-05-10,M,BR-015,2024-03-01,SUSPENDED,MSME,R,abc,8000,40000,12,21000
+CUST-INV-004,1995-01-22,,BR-017,2025-11-15,ACTIVE,FARMER,X,9000,11000,250000,ten,15000
+CUST-INV-005,1980-07-30,F,,2022-06-01,CLOSED,,P,20000,,78000,18,

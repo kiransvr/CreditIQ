@@ -175,7 +175,7 @@ function toRiskLabel(riskCategory: string, language: ShellLanguage): string {
     fair: "Fair",
     marginal: "Marginal",
     high_risk: "High Risk",
-    insufficient: "Insufficient"
+    insufficient: "Insufficient Data"
   };
 
   if (riskCategory in labels) {
