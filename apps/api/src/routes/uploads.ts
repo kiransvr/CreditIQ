@@ -29,7 +29,8 @@ const uploadMetaSchema = z.object({
 
 const overrideSchema = z.object({
   decision: z.enum(["proceed", "lower_loan", "manual_review", "reject"]),
-  reason: z.string().min(10)
+  reason: z.string().min(10),
+  reasonCode: z.string().trim().min(2).max(50).optional()
 });
 
 export const uploadsRouter = Router();
@@ -164,6 +165,14 @@ uploadsRouter.post(
       }
       return res.status(200).json(persisted);
     } catch (error) {
+      if (error instanceof Error && /timeout|timed out|etimedout|econnreset/i.test(error.message)) {
+        return res.status(504).json({
+          error_code: "CBS_TIMEOUT",
+          message: "Could not retrieve customer data. Please retry or proceed with manual assessment.",
+          details: []
+        });
+      }
+
       // Log error for debugging
       // eslint-disable-next-line no-console
       console.error("/uploads/:uploadId/validate error:", error);
@@ -260,9 +269,33 @@ uploadsRouter.post(
     }
 
     try {
+      const current = await uploadRepository.getUpload(uploadId);
+      if (!current) {
+        return res.status(404).json({
+          code: "UPLOAD_NOT_FOUND",
+          message: "Upload was not found",
+          details: []
+        });
+      }
+
+      const overridingDecline =
+        (current.recommendation.loanDecision ?? "").toLowerCase().includes("decline") && parsed.data.decision !== "reject";
+
+      if (overridingDecline && !parsed.data.reasonCode) {
+        return res.status(400).json({
+          code: "DECLINE_OVERRIDE_REASON_CODE_REQUIRED",
+          message: "reasonCode is required when overriding a decline recommendation",
+          details: []
+        });
+      }
+
+      const storedReason = parsed.data.reasonCode
+        ? `[${parsed.data.reasonCode}] ${parsed.data.reason}`
+        : parsed.data.reason;
+
       const updated = await uploadRepository.overrideUpload(uploadId, {
         decision: parsed.data.decision,
-        reason: parsed.data.reason,
+        reason: storedReason,
         actor: {
           username: actor.id,
           role: actor.role

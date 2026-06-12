@@ -22,19 +22,36 @@ export interface ApiErrorResponse {
 export interface UploadRecommendation {
   decision: "proceed" | "lower_loan" | "manual_review" | "reject";
   suggestedAmount: number;
+  recommendedLoanMax: number;
   score: number;
-  riskCategory: "low" | "medium" | "high" | "very_high";
+  riskCategory: "prime" | "good" | "fair" | "marginal" | "high_risk" | "insufficient";
+  loanDecision: string;
+  decisionRecommendation?: string;
+  recommendedAction: string;
+  color: string;
+  fairnessFlag?: "DORMANT_ACCOUNT";
+  errorCode?: string;
+  message?: string;
   reasons: string[];
   customerScores: Array<{
     row: number;
     customerId: string;
     customerName?: string;
     score: number;
-    riskCategory: "low" | "medium" | "high" | "very_high";
+    scoreAvailable: boolean;
+    riskCategory: "prime" | "good" | "fair" | "marginal" | "high_risk" | "insufficient";
+    loanDecision: string;
+    decisionRecommendation?: string;
+    recommendedAction: string;
+    color: string;
+    fairnessFlag?: "DORMANT_ACCOUNT";
+    errorCode?: string;
+    message?: string;
     confidence: number;
     manualReviewRequired: boolean;
     decision: "proceed" | "lower_loan" | "manual_review" | "reject";
     suggestedAmount: number;
+    recommendedLoanMax: number;
     reasons: string[];
   }>;
   explanation: {

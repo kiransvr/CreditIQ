@@ -2,8 +2,6 @@ import type { BorrowerRow } from "./validation.js";
 import { PolicyViolationError } from "../errors/policyViolation.js";
 
 const prohibitedFieldAliases = new Map<string, string>([
-  ["gender", "Gender"],
-  ["sex", "Gender"],
   ["religion", "Religion"],
   ["ethnicity", "Ethnicity"],
   ["tribe", "Tribe/Clan"],

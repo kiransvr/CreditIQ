@@ -3,8 +3,16 @@ import type { ValidationIssue, ValidationSummary } from "./validation.js";
 interface ReportRecommendation {
   decision: string;
   suggestedAmount: number;
+  recommendedLoanMax: number;
   score: number;
   riskCategory: string;
+  loanDecision: string;
+  decisionRecommendation?: string;
+  recommendedAction: string;
+  color: string;
+  fairnessFlag?: "DORMANT_ACCOUNT";
+  errorCode?: string;
+  message?: string;
   reasons: string[];
   explanation: {
     baseScore: number;
@@ -47,8 +55,22 @@ export function buildValidationReportCsv(
   lines.push(`summary,uploadId,${toCsvCell(uploadId)}`);
   lines.push(`summary,recommendedDecision,${toCsvCell(recommendation.decision)}`);
   lines.push(`summary,suggestedAmount,${recommendation.suggestedAmount}`);
+  lines.push(`summary,recommendedLoanMax,${recommendation.recommendedLoanMax}`);
   lines.push(`summary,score,${recommendation.score}`);
   lines.push(`summary,riskCategory,${toCsvCell(recommendation.riskCategory)}`);
+  lines.push(`summary,loanDecision,${toCsvCell(recommendation.loanDecision)}`);
+  lines.push(`summary,decisionRecommendation,${toCsvCell(recommendation.decisionRecommendation ?? recommendation.loanDecision)}`);
+  lines.push(`summary,recommendedAction,${toCsvCell(recommendation.recommendedAction)}`);
+  lines.push(`summary,riskColor,${toCsvCell(recommendation.color)}`);
+  if (recommendation.fairnessFlag) {
+    lines.push(`summary,fairnessFlag,${toCsvCell(recommendation.fairnessFlag)}`);
+  }
+  if (recommendation.errorCode) {
+    lines.push(`summary,errorCode,${toCsvCell(recommendation.errorCode)}`);
+  }
+  if (recommendation.message) {
+    lines.push(`summary,errorMessage,${toCsvCell(recommendation.message)}`);
+  }
   lines.push(`summary,baseScore,${recommendation.explanation.baseScore}`);
   if (recommendation.reasons[0]) {
     lines.push(`summary,topRecommendationReason,${toCsvCell(recommendation.reasons[0])}`);

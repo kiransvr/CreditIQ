@@ -5,6 +5,25 @@ import type { BorrowerRow } from "./validation.js";
 const headerAliases: Record<string, string> = {
   customerid: "customerId",
   customer_id: "customerId",
+  dateofbirth: "dateOfBirth",
+  date_of_birth: "dateOfBirth",
+  dob: "dateOfBirth",
+  gender: "gender",
+  branchcode: "branchCode",
+  branch_code: "branchCode",
+  branchid: "branchCode",
+  branch_id: "branchCode",
+  branchname: "branchName",
+  branch_name: "branchName",
+  urbanruralflag: "urbanRuralFlag",
+  urban_rural_flag: "urbanRuralFlag",
+  region: "region",
+  accountopendate: "accountOpeningDate",
+  account_open_date: "accountOpeningDate",
+  accountstatus: "accountStatus",
+  account_status: "accountStatus",
+  customersegment: "customerSegment",
+  customer_segment: "customerSegment",
   customername: "customerName",
   customer_name: "customerName",
   fullname: "customerName",
@@ -19,7 +38,13 @@ const headerAliases: Record<string, string> = {
   requestedloanamount: "requestedLoanAmount",
   requested_loan_amount: "requestedLoanAmount",
   requestedtenure: "requestedTenure",
-  requested_tenure: "requestedTenure"
+  requested_tenure: "requestedTenure",
+  loantermonths: "loanTermMonths",
+  loan_term_months: "loanTermMonths",
+  productmaxloanlimit: "productMaxLoanLimit",
+  product_max_loan_limit: "productMaxLoanLimit",
+  avgbalance6m: "avg_balance_6m",
+  avg_balance_6m: "avg_balance_6m"
 };
 
 const blockedKeys = new Set(["__proto__", "prototype", "constructor"]);

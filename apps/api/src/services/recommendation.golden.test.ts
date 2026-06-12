@@ -107,7 +107,7 @@ describe("recommendation golden dataset", () => {
   const { features, notes } = recommendationInternalsForTest.buildModelFeatures(row);
   const scored = recommendationInternalsForTest.calculateScoreFromFeatures(features, cleanValidation, notes);
 
-    expect(scored.score).toBe(440);
+    expect(scored.score).toBe(530);
   });
 
   it("applies inflation/devaluation recalibration and exposes traceability", () => {

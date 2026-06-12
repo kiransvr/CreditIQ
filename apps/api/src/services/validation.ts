@@ -33,11 +33,16 @@ export interface ValidationResult {
 
 const mandatoryFields = [
   "customerId",
+  "dateOfBirth",
+  "branchCode",
   "accountOpeningDate",
+  "accountStatus",
+  "customerSegment",
   "monthlyInflow",
   "monthlyOutflow",
   "requestedLoanAmount",
-  "requestedTenure"
+  "requestedTenure",
+  "urbanRuralFlag"
 ] as const;
 
 const numericFields = [
@@ -47,7 +52,10 @@ const numericFields = [
   "requestedTenure"
 ] as const;
 
-const dateFields = ["accountOpeningDate"] as const;
+const dateFields = ["accountOpeningDate", "dateOfBirth"] as const;
+const accountStatusAllowed = new Set(["ACTIVE", "DORMANT", "CLOSED", "FROZEN", "DISPUTED"]);
+const urbanRuralAllowed = new Set(["U", "R", "P"]);
+const genderAllowed = new Set(["M", "F", "O"]);
 
 function isMissing(value: string | number | null | undefined): boolean {
   return value === null || value === undefined || (typeof value === "string" && value.trim().length === 0);
@@ -114,6 +122,61 @@ export function validateBorrowerRows(
             message: `${field} must be a valid date`
           });
         }
+      }
+    }
+
+    const accountStatus = typeof row.accountStatus === "string" ? row.accountStatus.trim().toUpperCase() : "";
+    if (accountStatus && !accountStatusAllowed.has(accountStatus)) {
+      rowHasError = true;
+      errors.push({
+        row: rowNumber,
+        field: "accountStatus",
+        code: "INVALID_ENUM_VALUE",
+        message: "accountStatus must be one of ACTIVE, DORMANT, CLOSED, FROZEN, DISPUTED"
+      });
+    }
+
+    const urbanRuralFlag = typeof row.urbanRuralFlag === "string" ? row.urbanRuralFlag.trim().toUpperCase() : "";
+    if (urbanRuralFlag && !urbanRuralAllowed.has(urbanRuralFlag)) {
+      rowHasError = true;
+      errors.push({
+        row: rowNumber,
+        field: "urbanRuralFlag",
+        code: "INVALID_ENUM_VALUE",
+        message: "urbanRuralFlag must be one of U, R, P"
+      });
+    }
+
+    const gender = typeof row.gender === "string" ? row.gender.trim().toUpperCase() : "";
+    if (!gender || !genderAllowed.has(gender)) {
+      warnings.push({
+        row: rowNumber,
+        field: "gender",
+        code: "DATA_QUALITY_GENDER_DEFAULTED_O",
+        message: "gender missing or unexpected; defaulting to O for scoring"
+      });
+    }
+
+    const accountStatusForScore = accountStatus || "ACTIVE";
+    if (accountStatusForScore !== "ACTIVE") {
+      warnings.push({
+        row: rowNumber,
+        field: "accountStatus",
+        code: "SCORE_INELIGIBLE_ACCOUNT_STATUS",
+        message: "Only ACTIVE accounts are eligible for scoring"
+      });
+    }
+
+    const accountOpenDate = typeof row.accountOpeningDate === "string" ? Date.parse(row.accountOpeningDate) : NaN;
+    if (!Number.isNaN(accountOpenDate)) {
+      const tenureDays = Math.max(0, Math.floor((Date.now() - accountOpenDate) / (1000 * 60 * 60 * 24)));
+      if (tenureDays < 180) {
+        warnings.push({
+          row: rowNumber,
+          field: "accountOpeningDate",
+          code: "SCORE_INELIGIBLE_TENURE",
+          message: "Account tenure below 180 days is ineligible for scoring"
+        });
       }
     }
 

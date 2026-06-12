@@ -2,8 +2,10 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { hasDatabaseConfig } from "./db/client.js";
 import { ensureDatabaseSchema } from "./db/migrate.js";
+import { assertModelIntegrityOrThrow } from "./services/modelIntegrity.js";
 
 async function startServer() {
+  assertModelIntegrityOrThrow();
   await ensureDatabaseSchema();
 
   const app = createApp();

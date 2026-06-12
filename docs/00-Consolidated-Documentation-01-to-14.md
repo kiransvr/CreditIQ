@@ -654,39 +654,33 @@ Severity levels:
 
 Agile delivery with 2-week sprints and stage-gate governance.
 
-## 2. Suggested Timeline (12 Weeks)
+## 2. Approved Client Sprint Plan
 
-Sprint 0 (Week 1-2)
-- Environment setup
-- Requirements final sign-off
-- Data template and sample data readiness
+Total scope: 32 user stories across 6 sprints.
 
-Sprint 1 (Week 3-4)
-- Data upload and validation module
-- Initial role and authentication setup
+Sprint 1
+- Foundation - CBS Connector + Data Pipeline
 
-Sprint 2 (Week 5-6)
-- Scoring engine v1
-- Risk categorization and explanation module
+Sprint 2
+- Scoring Engine - Model Integration + SHAP Reasons
 
-Sprint 3 (Week 7-8)
-- Recommendation engine
-- Assessment report generation
-- Override workflow and audit logging
+Sprint 3
+- Batch Mode + Loan Recommendations + Error Handling
 
-Sprint 4 (Week 9-10)
-- Integration hardening
-- Performance and security test cycle
+Sprint 4
+- Real-Time API + Loan Officer Dashboard
 
-Sprint 5 (Week 11-12)
-- UAT and defect closure
-- Go-live preparation and training
+Sprint 5
+- Fairness Audit + Drift Detection + Security
+
+Sprint 6
+- Fine-Tuning + Pilot Deployment + Training + Go-Live
 
 ### Current Sprint Transition Status
 
-- Sprint 4 closeout completed.
-- Sprint 5 is now in progress.
-- Code freeze will start after Sprint 5 completion.
+- Sprint roadmap synced to approved 6-sprint client sequence.
+- Story-level allocation is tracked under sprint-specific story documents.
+- Sprint 6 planning and readiness artifacts are now part of the active roadmap.
 - During freeze, only critical bug fixes, security fixes, and approved demo blockers are allowed.
 
 ## 3. Milestones

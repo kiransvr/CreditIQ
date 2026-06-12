@@ -2,7 +2,19 @@ import type { BorrowerRow, ValidationResult } from "./validation.js";
 import { getActiveMarketAdjustment, type MarketAdjustmentFactor } from "./marketAdjustment.js";
 
 export type RecommendationDecision = "proceed" | "lower_loan" | "manual_review" | "reject";
-export type RiskCategory = "low" | "medium" | "high" | "very_high";
+export type RiskCategory = "prime" | "good" | "fair" | "marginal" | "high_risk" | "insufficient";
+
+interface RiskBandDetails {
+  riskTier: RiskCategory;
+  loanDecision: string;
+  recommendedAction: string;
+  color: string;
+}
+
+const ACTIVE_ACCOUNT_STATUS = "ACTIVE";
+const MIN_ACCOUNT_TENURE_DAYS = 180;
+const DEFAULT_LOAN_TERM_MONTHS = 12;
+const DEFAULT_PRODUCT_MAX_LOAN_LIMIT = 500000;
 
 export interface ScoreComponent {
   key: string;
@@ -43,8 +55,16 @@ export interface RecommendationExplanation {
 export interface RecommendationResult {
   decision: RecommendationDecision;
   suggestedAmount: number;
+  recommendedLoanMax: number;
   score: number;
   riskCategory: RiskCategory;
+  loanDecision: string;
+  decisionRecommendation?: string;
+  recommendedAction: string;
+  color: string;
+  fairnessFlag?: "DORMANT_ACCOUNT";
+  errorCode?: string;
+  message?: string;
   reasons: string[];
   explanation: RecommendationExplanation;
   customerScores: CustomerScore[];
@@ -55,11 +75,20 @@ export interface CustomerScore {
   customerId: string;
   customerName?: string;
   score: number;
+  scoreAvailable: boolean;
   riskCategory: RiskCategory;
+  loanDecision: string;
+  decisionRecommendation?: string;
+  recommendedAction: string;
+  color: string;
+  fairnessFlag?: "DORMANT_ACCOUNT";
+  errorCode?: string;
+  message?: string;
   confidence: number;
   manualReviewRequired: boolean;
   decision: RecommendationDecision;
   suggestedAmount: number;
+  recommendedLoanMax: number;
   reasons: string[];
 }
 
@@ -96,6 +125,14 @@ interface ModelFeatures {
   monthlyInflow: number;
   monthlyOutflow: number;
   requestedLoanAmount: number;
+  accountStatus: string;
+  normalizedGender: "M" | "F" | "O";
+  noTransactions6m: boolean;
+  hasBalanceSignal: boolean;
+  dataQualityFlags: string[];
+  loanTermMonths: number;
+  productMaxLoanLimit: number;
+  scoreEligible: boolean;
 }
 
 interface FeatureBuildResult {
@@ -132,6 +169,62 @@ function toNumber(value: string | number | null | undefined): number | null {
   }
 
   return null;
+}
+
+function parseLoanTermMonths(value: number | null): number {
+  if (value === null) {
+    return DEFAULT_LOAN_TERM_MONTHS;
+  }
+
+  return Math.max(1, Math.round(value));
+}
+
+function normalizeAccountStatus(status: string | undefined): string {
+  if (!status) {
+    return ACTIVE_ACCOUNT_STATUS;
+  }
+
+  return status.trim().toUpperCase();
+}
+
+function normalizeGender(value: string | undefined): { gender: "M" | "F" | "O"; missingOrUnexpected: boolean } {
+  const normalized = (value ?? "").trim().toUpperCase();
+  if (normalized === "M" || normalized === "F" || normalized === "O") {
+    return { gender: normalized, missingOrUnexpected: false };
+  }
+
+  return { gender: "O", missingOrUnexpected: true };
+}
+
+function hasAnyBalanceSignal(row: BorrowerRow): boolean {
+  const explicitBalanceAfter = getNumberValue(row, ["balance_after", "balanceAfter"]);
+  const avgBalance = getNumberValue(row, ["avg_balance_6m", "avgMonthlyClosingBalance6M", "averageBalance6m"]);
+  const closings = getNumberArrayValue(row, ["monthlyClosingBalances6M", "monthly_closing_balances_6m", "monthlyClosingBalances12M"]);
+
+  if (explicitBalanceAfter !== null) {
+    return true;
+  }
+
+  if (avgBalance !== null) {
+    return true;
+  }
+
+  return closings.some((value) => Number.isFinite(value));
+}
+
+function detectNoTransactions6m(row: BorrowerRow): boolean {
+  const txCount6m = getNumberValue(row, ["transactionsCount6m", "transactions_count_6m", "tx_count_6m"]);
+  if (txCount6m !== null) {
+    return txCount6m <= 0;
+  }
+
+  const monthlyInflow = getNumberValue(row, ["monthlyInflow", "monthly_inflow"]) ?? 0;
+  const monthlyOutflow = getNumberValue(row, ["monthlyOutflow", "monthly_outflow"]) ?? 0;
+  const deposits = getNumberArrayValue(row, ["monthlyDepositAmounts12M", "monthly_deposit_amounts_12m", "monthlyDepositTotals12M"]);
+  const last6Deposits = deposits.length >= 6 ? deposits.slice(-6) : [];
+  const hasRecentDeposits = last6Deposits.some((value) => value > 0);
+
+  return monthlyInflow <= 0 && monthlyOutflow <= 0 && !hasRecentDeposits;
 }
 
 function average(values: number[]): number {
@@ -332,7 +425,7 @@ function deriveTenureDays(row: BorrowerRow): number {
     return Math.max(0, explicit);
   }
 
-  const openDate = getTextValue(row, ["accountOpeningDate", "account_opening_date", "accountOpenDate"]);
+  const openDate = getTextValue(row, ["accountOpeningDate", "account_opening_date", "accountOpenDate", "account_open_date"]);
   if (openDate) {
     const parsed = Date.parse(openDate);
     if (!Number.isNaN(parsed)) {
@@ -450,14 +543,21 @@ function computeF5Repayment(row: BorrowerRow, notes: string[]): { hasPriorLoans:
   const installmentsOnTime = getNumberValue(row, ["installmentsOnTime", "installments_on_time"]);
   const priorLoansCount = getNumberValue(row, ["priorLoansCount", "prior_loans_count"]) ?? 0;
   const explicitPriorLoans = getBooleanValue(row, ["hasPriorLoans", "has_prior_loans"]);
-  const hasPriorLoans = explicitPriorLoans ?? (priorLoansCount > 0);
+  const inferredPriorFromInstallments = (installmentsDue ?? 0) > 0 || (installmentsOnTime ?? 0) > 0;
+  const hasPriorLoans = explicitPriorLoans ?? (priorLoansCount > 0 || inferredPriorFromInstallments);
 
   let repaymentRatePct = getNumberValue(row, ["repaymentRate", "onTimeRepaymentRate", "repayment_rate"]) ?? 0;
+  const loanAmountRaw = getNumberValue(row, ["loan_amount", "loanAmount"]);
+  if (loanAmountRaw !== null && loanAmountRaw < 0) {
+    notes.push("DATA_QUALITY_NEGATIVE_LOAN: negative loan_amount excluded from repayment calculations.");
+  }
+
   if (installmentsDue !== null && installmentsOnTime !== null && installmentsDue > 0) {
     repaymentRatePct = (installmentsOnTime / installmentsDue) * 100;
   }
 
   if (!hasPriorLoans) {
+    repaymentRatePct = -1;
     notes.push("F5 rule applied: no prior loans found; repayment group will use neutral score 500.");
   }
 
@@ -509,9 +609,19 @@ function computeF6OverdraftDays(row: BorrowerRow, notes: string[]): { unauthoriz
 
 function buildModelFeatures(row: BorrowerRow): FeatureBuildResult {
   const notes: string[] = [];
+  const dataQualityFlags: string[] = [];
   const monthlyInflow = getNumberValue(row, ["monthlyInflow", "monthly_inflow"]) ?? 0;
   const monthlyOutflow = getNumberValue(row, ["monthlyOutflow", "monthly_outflow"]) ?? 0;
   const requestedLoanAmount = getNumberValue(row, ["requestedLoanAmount", "requested_loan_amount"]) ?? 0;
+  const accountStatus = normalizeAccountStatus(getTextValue(row, ["accountStatus", "account_status"]));
+  const normalizedGender = normalizeGender(getTextValue(row, ["gender"]));
+  const loanTermMonths = parseLoanTermMonths(
+    getNumberValue(row, ["loanTermMonths", "loan_term_months", "requestedTenure", "requested_tenure"])
+  );
+  const productMaxLoanLimit = Math.max(
+    0,
+    getNumberValue(row, ["productMaxLoanLimit", "product_max_loan_limit", "configProductMaxLoanLimit"]) ?? DEFAULT_PRODUCT_MAX_LOAN_LIMIT
+  );
 
   const tenureDays = computeF1Tenure(row, notes);
   const f2 = computeF2AvgBalance6m(row, notes);
@@ -519,6 +629,35 @@ function buildModelFeatures(row: BorrowerRow): FeatureBuildResult {
   const f4 = computeF4DepositCv(row, notes);
   const f5 = computeF5Repayment(row, notes);
   const f6 = computeF6OverdraftDays(row, notes);
+  const noTransactions6m = detectNoTransactions6m(row);
+  const hasBalanceSignal = hasAnyBalanceSignal(row);
+
+  if (normalizedGender.missingOrUnexpected) {
+    dataQualityFlags.push("DATA_QUALITY_GENDER_DEFAULTED_O");
+    notes.push("Gender missing/unexpected; defaulted to O (Other/Not Stated).");
+  }
+
+  if (notes.some((item) => item.includes("DATA_QUALITY_NEGATIVE_LOAN"))) {
+    dataQualityFlags.push("DATA_QUALITY_NEGATIVE_LOAN");
+  }
+
+  if (!hasBalanceSignal) {
+    dataQualityFlags.push("DATA_QUALITY_BALANCE_NULL");
+    notes.push("All balance_after values are null or missing; scoring is blocked.");
+  }
+
+  if (noTransactions6m) {
+    dataQualityFlags.push("DORMANT_ACCOUNT");
+    notes.push("No transactions in last 6 months; dormant fairness flag applied with 10% score reduction.");
+  }
+
+  const scoreEligible = tenureDays >= MIN_ACCOUNT_TENURE_DAYS && accountStatus === ACTIVE_ACCOUNT_STATUS;
+
+  if (!scoreEligible) {
+    notes.push(
+      `Insufficient score inputs: tenure ${tenureDays} days and account status ${accountStatus}; minimum tenure is ${MIN_ACCOUNT_TENURE_DAYS} and status must be ${ACTIVE_ACCOUNT_STATUS}.`
+    );
+  }
 
   return {
     features: {
@@ -549,6 +688,14 @@ function buildModelFeatures(row: BorrowerRow): FeatureBuildResult {
       monthlyInflow,
       monthlyOutflow,
       requestedLoanAmount,
+      accountStatus,
+      normalizedGender: normalizedGender.gender,
+      noTransactions6m,
+      hasBalanceSignal,
+      dataQualityFlags,
+      loanTermMonths,
+      productMaxLoanLimit,
+      scoreEligible,
       onTimeInstallments: getNumberValue(row, ["onTimeInstallments", "on_time_installments"]) ?? 0,
       totalInstallments: getNumberValue(row, ["totalInstallments", "total_installments"]) ?? 0,
       monthlyClosingBalances6m: normalizeMonthlyClosings(
@@ -575,6 +722,100 @@ function buildModelFeatures(row: BorrowerRow): FeatureBuildResult {
     },
     notes
   };
+}
+
+function getRiskBandDetails(score: number, scoreAvailable: boolean): RiskBandDetails {
+  if (!scoreAvailable) {
+    return {
+      riskTier: "insufficient",
+      loanDecision: "CANNOT_SCORE",
+      recommendedAction: "Account history is less than 6 months - insufficient data to generate a reliable score.",
+      color: "#546E7A"
+    };
+  }
+
+  if (score >= 800) {
+    return {
+      riskTier: "prime",
+      loanDecision: "Pre-Approved",
+      recommendedAction: "Fast-track loan. Minimal documentation. Offer maximum product limit.",
+      color: "#1B5E20"
+    };
+  }
+
+  if (score >= 650) {
+    return {
+      riskTier: "good",
+      loanDecision: "Approve",
+      recommendedAction: "Standard approval. Normal documentation. Offer standard product limit.",
+      color: "#2E7D32"
+    };
+  }
+
+  if (score >= 500) {
+    return {
+      riskTier: "fair",
+      loanDecision: "Conditional Approve",
+      recommendedAction: "Reduce loan amount by 30-40%. Require guarantor or additional income proof.",
+      color: "#F9A825"
+    };
+  }
+
+  if (score >= 350) {
+    return {
+      riskTier: "marginal",
+      loanDecision: "Decline / Review",
+      recommendedAction: "Decline unless compelling manual override reason. Document override reason for audit.",
+      color: "#EF6C00"
+    };
+  }
+
+  return {
+    riskTier: "high_risk",
+    loanDecision: "Decline",
+    recommendedAction: "Decline and log account for 6-month reassessment.",
+    color: "#C62828"
+  };
+}
+
+function toRecommendationDecision(riskTier: RiskCategory, hasWarningsOrErrors: boolean): RecommendationDecision {
+  if (riskTier === "insufficient") {
+    return "manual_review";
+  }
+
+  if (hasWarningsOrErrors) {
+    return "manual_review";
+  }
+
+  if (riskTier === "high_risk") {
+    return "reject";
+  }
+
+  if (riskTier === "marginal") {
+    return "manual_review";
+  }
+
+  if (riskTier === "fair") {
+    return "lower_loan";
+  }
+
+  return "proceed";
+}
+
+function computeRecommendedLoanMax(
+  score: number,
+  avgBalance6m: number,
+  loanTermMonths: number,
+  productMaxLoanLimit: number,
+  scoreAvailable: boolean
+): number {
+  if (!scoreAvailable) {
+    return 0;
+  }
+
+  const incomeProxy = Math.max(avgBalance6m, 0) * 0.7;
+  const rawMax = (clamp(score, 0, 1000) / 1000) * incomeProxy * Math.max(1, loanTermMonths);
+  return roundAmount(Math.min(rawMax, Math.max(0, productMaxLoanLimit)));
 }
 
 function computeGroupScores(features: ModelFeatures): { groupScores: GroupScores; notes: string[] } {
@@ -644,22 +885,6 @@ function computeGroupScores(features: ModelFeatures): { groupScores: GroupScores
   };
 }
 
-function toRiskCategory(score: number): RiskCategory {
-  if (score >= 750) {
-    return "low";
-  }
-
-  if (score >= 620) {
-    return "medium";
-  }
-
-  if (score >= 450) {
-    return "high";
-  }
-
-  return "very_high";
-}
-
 function calculateScoreFromFeatures(
   features: ModelFeatures,
   validation: ValidationResult,
@@ -686,7 +911,8 @@ function calculateScoreFromFeatures(
 
   const qualityPenalty = validation.summary.errorRows * 80 + validation.summary.warningRows * 20;
   const rawScore = Math.round(clamp(weightedRawScore - qualityPenalty, 0, 1000));
-  const adjustedScore = Math.round(clamp(rawScore * marketAdjustment.factor, 0, 1000));
+  const dormantPenaltyFactor = features.noTransactions6m ? 0.9 : 1;
+  const adjustedScore = Math.round(clamp(rawScore * marketAdjustment.factor * dormantPenaltyFactor, 0, 1000));
 
   const components: ScoreComponent[] = [
     {
@@ -733,6 +959,14 @@ function calculateScoreFromFeatures(
       impact: -qualityPenalty,
       detail: `${validation.summary.errorRows} error row(s) and ${validation.summary.warningRows} warning row(s).`
     },
+    ...(features.noTransactions6m
+      ? [{
+        key: "dormant_account_penalty",
+        label: "Dormant account fairness adjustment",
+        impact: Math.round(adjustedScore - Math.round(clamp(rawScore * marketAdjustment.factor, 0, 1000))),
+        detail: "No transactions in 6 months detected; 10% reduction applied."
+      }]
+      : []),
     {
       key: "market_adjustment",
       label: "Market adjustment recalibration",
@@ -771,6 +1005,7 @@ function calculateScoreFromFeatures(
       policyNotes: [
         ...featureNotes,
         ...notes,
+        ...(features.noTransactions6m ? ["Fairness flag DORMANT_ACCOUNT applied."] : []),
         `Market recalibration factor ${marketAdjustment.factor.toFixed(4)} applied (${marketAdjustment.source}).`
       ],
       weightedSignals,
@@ -847,46 +1082,106 @@ function buildCustomerScores(
       reasons.push(`${rowErrors} blocking validation error(s) found for this row.`);
     }
 
-    const finalScore = Math.round(clamp(score, 0, 1000));
-    const finalConfidence = Math.round(clamp(confidence, 0, 100));
-    const riskCategory = toRiskCategory(finalScore);
-    const manualReviewRequired = rowErrors > 0 || rowWarnings > 0 || finalConfidence < 60;
+    const accountNotEligible = features.accountStatus === "CLOSED" || features.accountStatus === "FROZEN";
+    const balanceDataInvalid = !features.hasBalanceSignal;
+    const scoreAvailable = features.scoreEligible && !accountNotEligible && !balanceDataInvalid;
+    const finalScore = scoreAvailable ? Math.round(clamp(score, 0, 1000)) : 0;
+    const finalConfidence = scoreAvailable ? Math.round(clamp(confidence, 0, 100)) : 0;
+    const riskBand = getRiskBandDetails(finalScore, scoreAvailable);
+    const manualReviewRequired = rowErrors > 0 || rowWarnings > 0 || finalConfidence < 60 || !scoreAvailable;
 
-    const netCashflow = features.monthlyInflow - features.monthlyOutflow;
-    const capacityBasedAmount = roundAmount(Math.max(netCashflow, 0) * 10);
-    const requested = features.requestedLoanAmount;
-
-    let decision: RecommendationDecision = "proceed";
-    if (rowErrors > 0 || manualReviewRequired) {
-      decision = "manual_review";
-    } else if (finalScore < 350 || netCashflow <= 0) {
-      decision = "reject";
-    } else if (capacityBasedAmount > 0 && requested > capacityBasedAmount) {
-      decision = "lower_loan";
+    if (!scoreAvailable) {
+      reasons.push("Score not issued because account tenure is below 180 days or account status is not ACTIVE.");
     }
 
+    let errorCode: string | undefined;
+    let message: string | undefined;
+
+    if (balanceDataInvalid) {
+      errorCode = "DATA_QUALITY_BALANCE_NULL";
+      message = "CBS data quality issue: all balance_after values are NULL. Notify admin.";
+      reasons.push(message);
+    } else if (accountNotEligible) {
+      errorCode = "ACCOUNT_NOT_ELIGIBLE";
+      message = `Account status is ${features.accountStatus} - not eligible for credit scoring.`;
+      reasons.push(message);
+    }
+
+    const requested = features.requestedLoanAmount;
+    const recommendedLoanMax = computeRecommendedLoanMax(
+      finalScore,
+      features.avgBalance6m,
+      features.loanTermMonths,
+      features.productMaxLoanLimit,
+      scoreAvailable
+    );
+
+    const decision = toRecommendationDecision(riskBand.riskTier, rowErrors > 0 || rowWarnings > 0 || !scoreAvailable);
     const suggestedAmount = decision === "reject"
       ? 0
       : decision === "lower_loan"
-        ? capacityBasedAmount
-        : roundAmount(Math.max(requested, capacityBasedAmount));
+        ? roundAmount(Math.min(Math.max(recommendedLoanMax * 0.7, 0), Math.max(recommendedLoanMax, 0)))
+        : roundAmount(Math.min(Math.max(requested, 0), Math.max(recommendedLoanMax, 0)));
 
     return {
       row: rowNumber,
       customerId,
       customerName,
       score: finalScore,
-      riskCategory,
+      scoreAvailable,
+      riskCategory: riskBand.riskTier,
+      loanDecision: riskBand.loanDecision,
+      decisionRecommendation: riskBand.loanDecision,
+      recommendedAction: riskBand.recommendedAction,
+      color: riskBand.color,
+      fairnessFlag: features.noTransactions6m ? "DORMANT_ACCOUNT" : undefined,
+      errorCode,
+      message,
       confidence: finalConfidence,
       manualReviewRequired,
       decision,
       suggestedAmount,
+      recommendedLoanMax,
       reasons: reasons.slice(0, 5)
     };
   });
 }
 
 export async function generateRecommendation(rows: BorrowerRow[], validation: ValidationResult): Promise<RecommendationResult> {
+  if (rows.length === 0) {
+    return {
+      decision: "manual_review",
+      suggestedAmount: 0,
+      recommendedLoanMax: 0,
+      score: 0,
+      riskCategory: "insufficient",
+      loanDecision: "CANNOT_SCORE",
+      decisionRecommendation: "CANNOT_SCORE",
+      recommendedAction: "No new transactions since last batch. Manual review may proceed if needed.",
+      color: "#546E7A",
+      reasons: ["BATCH_SKIPPED - no new transactions since last batch."],
+      explanation: {
+        baseScore: 0,
+        components: [],
+        policyNotes: ["BATCH_SKIPPED - no new transactions since last batch."],
+        weightedSignals: [],
+        rationaleCategories: [],
+        scoreTrend: [],
+        marketAdjustment: {
+          source: "in_memory_default",
+          effectiveFrom: "1970-01-01T00:00:00Z",
+          effectiveTo: null,
+          inflationPercent: 0,
+          devaluationPercent: 0,
+          factor: 1,
+          rawScore: 0,
+          adjustedScore: 0
+        }
+      },
+      customerScores: []
+    };
+  }
+
   const marketAdjustment = await getActiveMarketAdjustment();
 
   const customerScores = buildCustomerScores(rows, validation, marketAdjustment);
@@ -952,6 +1247,14 @@ export async function generateRecommendation(rows: BorrowerRow[], validation: Va
     monthlyInflow: avgInflow,
     monthlyOutflow: avgOutflow,
     requestedLoanAmount: avgRequested,
+    accountStatus: ACTIVE_ACCOUNT_STATUS,
+    normalizedGender: "O",
+    noTransactions6m: false,
+    hasBalanceSignal: true,
+    dataQualityFlags: [],
+    loanTermMonths: DEFAULT_LOAN_TERM_MONTHS,
+    productMaxLoanLimit: DEFAULT_PRODUCT_MAX_LOAN_LIMIT,
+    scoreEligible: true,
     onTimeInstallments: 0,
     totalInstallments: 0,
     monthlyClosingBalances6m: new Array(6).fill(avgInflow - avgOutflow),
@@ -959,21 +1262,27 @@ export async function generateRecommendation(rows: BorrowerRow[], validation: Va
     monthlyDepositTotals12m: new Array(12).fill(avgInflow)
   };
   const scored = calculateScoreFromFeatures(portfolioFeatureProxy, validation, [], marketAdjustment);
-  const score = customerScores.length > 0
-    ? Math.round(average(customerScores.map((item) => item.score)))
+  const scoredCustomers = customerScores.filter((item) => item.scoreAvailable);
+  const scoreAvailable = scoredCustomers.length > 0;
+  const score = scoreAvailable
+    ? Math.round(average(scoredCustomers.map((item) => item.score)))
     : (portfolioGroupScores.length > 0 ? Math.round(average(portfolioGroupScores)) : scored.score);
-  const riskCategory = toRiskCategory(score);
+  const riskBand = getRiskBandDetails(scoreAvailable ? score : 0, scoreAvailable);
   const explanation: RecommendationExplanation = {
     ...scored.explanation,
     policyNotes: []
   };
 
   const reasons: string[] = [];
+  const hasBalanceQualityBlock = customerScores.some((item) => item.errorCode === "DATA_QUALITY_BALANCE_NULL");
+  const hasAccountEligibilityBlock = customerScores.some((item) => item.errorCode === "ACCOUNT_NOT_ELIGIBLE");
+  const hasDormantFairnessFlag = customerScores.some((item) => item.fairnessFlag === "DORMANT_ACCOUNT");
 
   reasons.push(`Validated ${validation.summary.totalRows} rows with ${validation.summary.errorRows} error rows and ${validation.summary.warningRows} warning rows.`);
   reasons.push(`Estimated average net monthly cashflow is ${roundAmount(netCashflow)}.`);
-  reasons.push(`Calculated portfolio score is ${score} with ${riskCategory} risk category.`);
+  reasons.push(`Calculated portfolio score is ${score} and mapped to ${riskBand.riskTier} tier.`);
   reasons.push(`Individual customer scores generated for ${customerScores.length} row(s).`);
+  reasons.push("Loan recommendation is advisory only; final loan officer decision must be logged in CBS.");
 
   if (avgRequested > 0) {
     reasons.push(`Average requested loan amount is ${roundAmount(avgRequested)}.`);
@@ -984,66 +1293,108 @@ export async function generateRecommendation(rows: BorrowerRow[], validation: Va
   if (validation.summary.errorRows > 0) {
     reasons.push("Mandatory fields are missing or invalid, so manager review is required.");
     explanation.policyNotes.push("Policy rule: blocking validation errors force manual_review.");
+    explanation.policyNotes.push("Policy rule: score bands are advisory only; officers never auto-approve or auto-reject.");
     return {
       decision: "manual_review",
       suggestedAmount: roundAmount(Math.min(Math.max(avgRequested, 0), Math.max(capacityBasedAmount, 0))),
+      recommendedLoanMax: computeRecommendedLoanMax(score, avgInflow, DEFAULT_LOAN_TERM_MONTHS, DEFAULT_PRODUCT_MAX_LOAN_LIMIT, scoreAvailable),
       score,
-      riskCategory,
+      riskCategory: riskBand.riskTier,
+      loanDecision: riskBand.loanDecision,
+      decisionRecommendation: riskBand.loanDecision,
+      recommendedAction: riskBand.recommendedAction,
+      color: riskBand.color,
       reasons: reasons.slice(0, 5),
       explanation,
       customerScores
     };
   }
 
-  if (netCashflow <= 0 || score < 420) {
-    reasons.push("Cashflow indicates weak repayment capacity.");
-    explanation.policyNotes.push("Policy rule: non-positive net cashflow or score < 420 leads to reject.");
-    return {
-      decision: "reject",
-      suggestedAmount: 0,
-      score,
-      riskCategory,
-      reasons: reasons.slice(0, 5),
-      explanation,
-      customerScores
-    };
-  }
-
-  if (avgRequested > capacityBasedAmount && capacityBasedAmount > 0) {
-    reasons.push("Requested amount exceeds estimated repayment capacity; lower amount is advised.");
-    explanation.policyNotes.push("Policy rule: request above capacity leads to lower_loan recommendation.");
-    return {
-      decision: "lower_loan",
-      suggestedAmount: capacityBasedAmount,
-      score,
-      riskCategory,
-      reasons: reasons.slice(0, 5),
-      explanation,
-      customerScores
-    };
-  }
-
-  if (validation.summary.warningRows > 0 || score < 620) {
-    reasons.push("Warning signals are present; manual review is recommended before approval.");
-    explanation.policyNotes.push("Policy rule: warning signals or score < 620 trigger manual_review.");
+  if (hasBalanceQualityBlock) {
+    explanation.policyNotes.push("Policy rule: DATA_QUALITY_BALANCE_NULL blocks scoring and requires admin notification.");
     return {
       decision: "manual_review",
-      suggestedAmount: roundAmount(Math.max(avgRequested, 0)),
-      score,
-      riskCategory,
+      suggestedAmount: 0,
+      recommendedLoanMax: 0,
+      score: 0,
+      riskCategory: "insufficient",
+      loanDecision: "CANNOT_SCORE",
+      decisionRecommendation: "CANNOT_SCORE",
+      recommendedAction: "Account history is less than 6 months - insufficient data to generate a reliable score.",
+      color: "#546E7A",
+      errorCode: "DATA_QUALITY_BALANCE_NULL",
+      message: "CBS data quality issue: all balance_after values are NULL. Notify admin.",
       reasons: reasons.slice(0, 5),
       explanation,
       customerScores
     };
   }
 
-  reasons.push("Repayment capacity and data quality are within acceptable range for normal processing.");
-  explanation.policyNotes.push("Policy rule: data quality and score thresholds permit proceed.");
-  return {
-    decision: "proceed",
-    suggestedAmount: roundAmount(Math.max(avgRequested, 0)),
+  if (hasAccountEligibilityBlock) {
+    explanation.policyNotes.push("Policy rule: CLOSED/FROZEN accounts are not eligible for scoring.");
+    return {
+      decision: "manual_review",
+      suggestedAmount: 0,
+      recommendedLoanMax: 0,
+      score: 0,
+      riskCategory: "insufficient",
+      loanDecision: "CANNOT_SCORE",
+      decisionRecommendation: "CANNOT_SCORE",
+      recommendedAction: "Account history is less than 6 months - insufficient data to generate a reliable score.",
+      color: "#546E7A",
+      errorCode: "ACCOUNT_NOT_ELIGIBLE",
+      message: "Account status is CLOSED/FROZEN - not eligible for credit scoring.",
+      reasons: reasons.slice(0, 5),
+      explanation,
+      customerScores
+    };
+  }
+
+  const recommendedLoanMax = computeRecommendedLoanMax(
     score,
-    riskCategory,
+    avgInflow,
+    DEFAULT_LOAN_TERM_MONTHS,
+    DEFAULT_PRODUCT_MAX_LOAN_LIMIT,
+    scoreAvailable
+  );
+
+  const hasWarnings = validation.summary.warningRows > 0;
+  const decision = toRecommendationDecision(riskBand.riskTier, hasWarnings || !scoreAvailable);
+
+  if (!scoreAvailable) {
+    reasons.push("Cannot score this portfolio because eligible ACTIVE account history is below 180 days.");
+    explanation.policyNotes.push("Policy rule: insufficient ACTIVE tenure (<180 days) returns insufficient tier.");
+  } else if (decision === "reject") {
+    reasons.push("Risk tier indicates high risk; decline is recommended pending officer confirmation.");
+  } else if (decision === "lower_loan") {
+    reasons.push("Risk tier indicates fair profile; conditional approval with reduced amount is recommended.");
+  } else if (decision === "manual_review") {
+    reasons.push("Risk tier and warning signals indicate manual review is recommended.");
+  } else {
+    reasons.push("Risk tier supports normal approval flow subject to officer confirmation.");
+  }
+
+  explanation.policyNotes.push("Policy rule: score bands are advisory only; officers never auto-approve or auto-reject.");
+  explanation.policyNotes.push("Policy rule: decline overrides require written reason code for audit compliance.");
+  if (hasDormantFairnessFlag) {
+    explanation.policyNotes.push("Policy rule: DORMANT_ACCOUNT fairness_flag applied with 10% score reduction.");
+  }
+
+  return {
+    decision,
+    suggestedAmount: decision === "reject"
+      ? 0
+      : decision === "lower_loan"
+        ? roundAmount(Math.min(Math.max(recommendedLoanMax * 0.7, 0), Math.max(recommendedLoanMax, 0)))
+        : roundAmount(Math.min(Math.max(avgRequested, 0), Math.max(recommendedLoanMax, 0))),
+    recommendedLoanMax,
+    score,
+    riskCategory: riskBand.riskTier,
+    loanDecision: riskBand.loanDecision,
+    decisionRecommendation: riskBand.loanDecision,
+    recommendedAction: riskBand.recommendedAction,
+    color: riskBand.color,
+    fairnessFlag: hasDormantFairnessFlag ? "DORMANT_ACCOUNT" : undefined,
     reasons: reasons.slice(0, 5),
     explanation,
     customerScores

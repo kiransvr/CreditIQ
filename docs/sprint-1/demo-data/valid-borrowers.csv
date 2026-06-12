@@ -1,4 +1,22 @@
-customerId,accountOpeningDate,currentBalance,monthlyInflow,monthlyOutflow,depositsLast12To24Months,defaultsLast12To24Months,existingLiabilitiesTotalOutstanding,existingLiabilitiesMonthlyObligation,requestedLoanAmount,requestedTenure
-CUST-001,2024-01-01,78000,10000,6000,18,0,22000,1400,35000,12
-CUST-002,2023-11-12,42000,8500,4200,14,1,30000,1800,24000,10
-CUST-003,2024-02-20,98000,12000,7000,21,0,45000,2600,50000,18
+section,metric,value
+summary,totalRows,3
+summary,validRows,3
+summary,errorRows,0
+summary,warningRows,0
+summary,uploadId,"2224ca32-365a-419c-80cc-353b6f7c3bd9"
+summary,recommendedDecision,"reject"
+summary,suggestedAmount,0
+summary,score,259
+summary,riskCategory,"very_high"
+summary,baseScore,500
+summary,topRecommendationReason,"Validated 3 rows with 0 error rows and 0 warning rows."
+summary,topScoreComponent,"Account Stability"
+summary,topScoreImpact,60
+summary,topPolicyNote,"Policy rule: non-positive net cashflow or score < 420 leads to reject."
+summary,marketAdjustmentFactor,0.92
+summary,rawScoreBeforeMarketAdjustment,499
+summary,adjustedScoreAfterMarketAdjustment,459
+summary,inflationPercent,18
+summary,devaluationPercent,8
+
+issueType,row,field,code,message

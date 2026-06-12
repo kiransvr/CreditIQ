@@ -39,19 +39,36 @@ interface UploadOverride {
 interface UploadRecommendation {
   decision: string;
   suggestedAmount: number;
+  recommendedLoanMax: number;
   score: number;
   riskCategory: string;
+  loanDecision: string;
+  decisionRecommendation?: string;
+  recommendedAction: string;
+  color: string;
+  fairnessFlag?: "DORMANT_ACCOUNT";
+  errorCode?: string;
+  message?: string;
   reasons: string[];
   customerScores: Array<{
     row: number;
     customerId: string;
     customerName?: string;
     score: number;
+    scoreAvailable: boolean;
     riskCategory: string;
+    loanDecision: string;
+    decisionRecommendation?: string;
+    recommendedAction: string;
+    color: string;
+    fairnessFlag?: "DORMANT_ACCOUNT";
+    errorCode?: string;
+    message?: string;
     confidence: number;
     manualReviewRequired: boolean;
     decision: string;
     suggestedAmount: number;
+    recommendedLoanMax: number;
     reasons: string[];
   }>;
   explanation: {
@@ -249,11 +266,20 @@ type UploadRowRecord = {
           customerId?: string;
           customerName?: string;
           score?: number;
+          scoreAvailable?: boolean;
           riskCategory?: string;
+          loanDecision?: string;
+          decisionRecommendation?: string;
+          recommendedAction?: string;
+          color?: string;
+          fairnessFlag?: "DORMANT_ACCOUNT";
+          errorCode?: string;
+          message?: string;
           confidence?: number;
           manualReviewRequired?: boolean;
           decision?: string;
           suggestedAmount?: number;
+          recommendedLoanMax?: number;
           reasons?: string[];
         }>;
       }
@@ -368,8 +394,13 @@ class InMemoryUploadRepository implements UploadRepository {
       recommendation: {
         decision: "manual_review",
         suggestedAmount: 0,
+        recommendedLoanMax: 0,
         score: 0,
-        riskCategory: "very_high",
+        riskCategory: "insufficient",
+        loanDecision: "CANNOT_SCORE",
+        decisionRecommendation: "CANNOT_SCORE",
+        recommendedAction: "Insufficient information to score.",
+        color: "#546E7A",
         reasons: [],
         customerScores: [],
         explanation: {
@@ -417,8 +448,16 @@ class InMemoryUploadRepository implements UploadRepository {
     existing.recommendation = {
       decision: recommendation.decision,
       suggestedAmount: recommendation.suggestedAmount,
+      recommendedLoanMax: recommendation.recommendedLoanMax,
       score: recommendation.score,
       riskCategory: recommendation.riskCategory,
+      loanDecision: recommendation.loanDecision,
+      decisionRecommendation: recommendation.decisionRecommendation,
+      recommendedAction: recommendation.recommendedAction,
+      color: recommendation.color,
+      fairnessFlag: recommendation.fairnessFlag,
+      errorCode: recommendation.errorCode,
+      message: recommendation.message,
       reasons: recommendation.reasons,
       customerScores: recommendation.customerScores,
       explanation: recommendation.explanation
@@ -806,8 +845,16 @@ class PostgresUploadRepository implements UploadRepository {
         recommendation: {
           decision: recommendation.decision,
           suggestedAmount: recommendation.suggestedAmount,
+          recommendedLoanMax: recommendation.recommendedLoanMax,
           score: recommendation.score,
           riskCategory: recommendation.riskCategory,
+          loanDecision: recommendation.loanDecision,
+          decisionRecommendation: recommendation.decisionRecommendation,
+          recommendedAction: recommendation.recommendedAction,
+          color: recommendation.color,
+          fairnessFlag: recommendation.fairnessFlag,
+          errorCode: recommendation.errorCode,
+          message: recommendation.message,
           reasons: recommendation.reasons,
           customerScores: recommendation.customerScores,
           explanation: recommendation.explanation
@@ -997,19 +1044,33 @@ class PostgresUploadRepository implements UploadRepository {
       recommendation: {
         decision: upload.recommended_decision ?? "manual_review",
         suggestedAmount: Number.parseFloat(upload.recommended_amount ?? "0"),
+        recommendedLoanMax: 0,
         score: upload.recommended_score ?? 0,
-        riskCategory: upload.recommended_risk_category ?? "very_high",
+        riskCategory: upload.recommended_risk_category ?? "insufficient",
+        loanDecision: "CANNOT_SCORE",
+        decisionRecommendation: "CANNOT_SCORE",
+        recommendedAction: "Recommendation metadata unavailable from legacy record.",
+        color: "#546E7A",
         reasons: upload.recommendation_reasons ?? [],
         customerScores: (upload.recommendation_explanation?.customerScores ?? []).map((item) => ({
           row: item.row ?? 0,
           customerId: item.customerId ?? "",
           customerName: item.customerName,
           score: item.score ?? 0,
-          riskCategory: item.riskCategory ?? "very_high",
+          scoreAvailable: item.scoreAvailable ?? true,
+          riskCategory: item.riskCategory ?? "insufficient",
+          loanDecision: item.loanDecision ?? "CANNOT_SCORE",
+          decisionRecommendation: item.decisionRecommendation,
+          recommendedAction: item.recommendedAction ?? "Recommendation metadata unavailable from legacy record.",
+          color: item.color ?? "#546E7A",
+          fairnessFlag: item.fairnessFlag,
+          errorCode: item.errorCode,
+          message: item.message,
           confidence: item.confidence ?? 0,
           manualReviewRequired: item.manualReviewRequired ?? true,
           decision: item.decision ?? "manual_review",
           suggestedAmount: item.suggestedAmount ?? 0,
+          recommendedLoanMax: item.recommendedLoanMax ?? 0,
           reasons: item.reasons ?? []
         })),
         explanation: {

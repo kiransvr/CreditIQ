@@ -18,9 +18,9 @@ test("upload, validate from file, fetch upload, and download report", async () =
   const app = createApp();
 
   const csv = [
-    "customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure",
-    "CUST-001,2024-01-01,1000,1200,5000,12",
-    "CUST-002,2024-02-10,,400,1500,6"
+    "customerId,dateOfBirth,gender,branchCode,urbanRuralFlag,accountOpeningDate,accountStatus,customerSegment,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure,avg_balance_6m,loan_term_months,product_max_loan_limit",
+    "CUST-001,1990-06-01,M,BR-01,U,2024-01-01,ACTIVE,RETAIL,1000,1200,5000,12,2500,12,25000",
+    "CUST-002,1988-02-10,F,BR-02,R,2024-02-10,ACTIVE,FARMER,,400,1500,6,1000,12,20000"
   ].join("\n");
 
   const uploadResponse = await request(app)
@@ -51,8 +51,12 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(validateResponse.body.summary.warningRows, 1);
   assert.equal(validateResponse.body.recommendation.decision, "manual_review");
   assert.equal(typeof validateResponse.body.recommendation.suggestedAmount, "number");
+  assert.equal(typeof validateResponse.body.recommendation.recommendedLoanMax, "number");
   assert.equal(typeof validateResponse.body.recommendation.score, "number");
-  assert.match(validateResponse.body.recommendation.riskCategory, /low|medium|high|very_high/);
+  assert.match(validateResponse.body.recommendation.riskCategory, /prime|good|fair|marginal|high_risk|insufficient/);
+  assert.equal(typeof validateResponse.body.recommendation.loanDecision, "string");
+  assert.equal(typeof validateResponse.body.recommendation.recommendedAction, "string");
+  assert.equal(typeof validateResponse.body.recommendation.color, "string");
   const explanation = validateResponse.body.recommendation.explanation;
   assert.equal(typeof explanation.baseScore, "number");
   assert.equal(Array.isArray(explanation.components), true);
@@ -73,7 +77,7 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.equal(getResponse.body.summary.totalRows, 2);
   assert.equal(getResponse.body.recommendation.decision, "manual_review");
   assert.equal(typeof getResponse.body.recommendation.score, "number");
-  assert.match(getResponse.body.recommendation.riskCategory, /low|medium|high|very_high/);
+  assert.match(getResponse.body.recommendation.riskCategory, /prime|good|fair|marginal|high_risk|insufficient/);
   const getExplanation = getResponse.body.recommendation.explanation;
   assert.equal(typeof getExplanation.baseScore, "number");
   assert.equal(Array.isArray(getExplanation.weightedSignals), true);
@@ -119,8 +123,11 @@ test("upload, validate from file, fetch upload, and download report", async () =
   assert.match(contentType, /text\/csv/);
   assert.match(reportResponse.text, /summary,totalRows,2/);
   assert.match(reportResponse.text, /summary,recommendedDecision/);
+  assert.match(reportResponse.text, /summary,recommendedLoanMax,/);
   assert.match(reportResponse.text, /summary,score,/);
   assert.match(reportResponse.text, /summary,riskCategory,/);
+  assert.match(reportResponse.text, /summary,loanDecision,/);
+  assert.match(reportResponse.text, /summary,recommendedAction,/);
   assert.match(reportResponse.text, /summary,baseScore,/);
   assert.match(reportResponse.text, /summary,topPolicyNote,/);
   assert.match(reportResponse.text, /issueType,row,field,code,message/);
@@ -130,8 +137,8 @@ test("upload requires authentication", async () => {
   const app = createApp();
 
   const csv = [
-    "customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure",
-    "CUST-001,2024-01-01,1000,500,5000,12"
+    "customerId,dateOfBirth,gender,branchCode,urbanRuralFlag,accountOpeningDate,accountStatus,customerSegment,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure",
+    "CUST-001,1990-01-01,M,BR-01,U,2024-01-01,ACTIVE,RETAIL,1000,500,5000,12"
   ].join("\n");
 
   const response = await request(app)
@@ -176,8 +183,8 @@ test("validate fails loudly when prohibited sensitive fields are present", async
   const app = createApp();
 
   const csv = [
-    "customerId,accountOpeningDate,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure,gender,maritalStatus",
-    "CUST-001,2024-01-01,1000,500,3000,12,Female,Married"
+    "customerId,dateOfBirth,gender,branchCode,urbanRuralFlag,accountOpeningDate,accountStatus,customerSegment,monthlyInflow,monthlyOutflow,requestedLoanAmount,requestedTenure,maritalStatus",
+    "CUST-001,1990-01-01,F,BR-01,U,2024-01-01,ACTIVE,RETAIL,1000,500,3000,12,Married"
   ].join("\n");
 
   const uploadResponse = await request(app)

@@ -116,29 +116,31 @@ Implement deterministic calculations:
 
 Total remaining after current critical patch: 9 to 13 engineer-days
 
-## 6. Sprint Split Proposal
+## 6. Approved Client Sprint Sync
 
-### Sprint 5 (Current)
-- Done:
-  - Fairness audit API and persistence
-  - Prohibited-feature hard assertion
-  - Regression tests for both
-  - Golden dataset tests for deterministic F1-F6 and score reproducibility
-  - Inflation/devaluation recalibration module with adjusted-score traceability output
-- In-progress:
-  - Environment migration rollout for 007
-  - Environment migration rollout for 008
-  - API contract publication update
+The client-approved delivery plan is now fixed at 32 user stories across 6 sprints:
 
-### Sprint 6 (Next)
-- Scoring engine migration to 6-group weighted framework
-- Exact F1-F6 feature calculation implementation
-- Dataset-level verification and snapshot tests
+### Sprint 1
+- Foundation - CBS Connector + Data Pipeline
 
-### Sprint 7
-- Inflation/devaluation recalibration module
-- Governance dashboards/report exports for regulator request format
-- Full compliance sign-off and go-live gate rehearsal
+### Sprint 2
+- Scoring Engine - Model Integration + SHAP Reasons
+
+### Sprint 3
+- Batch Mode + Loan Recommendations + Error Handling
+
+### Sprint 4
+- Real-Time API + Loan Officer Dashboard
+
+### Sprint 5
+- Fairness Audit + Drift Detection + Security
+
+### Sprint 6
+- Fine-Tuning + Pilot Deployment + Training + Go-Live
+
+Notes:
+- Any prior references to a 7-sprint split are superseded by this approved 6-sprint plan.
+- Ongoing implementation tasks in this document should be mapped to the sprint scope above.
 
 ## 7. Risks and Controls
 
